@@ -58,6 +58,7 @@ import { useAuth } from './context/AuthContext'; // Import useAuth
 const { Header, Content, Sider } = Layout;
 
 const App = () => {
+    
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
@@ -67,6 +68,10 @@ const App = () => {
     const location = useLocation();
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
     const { owner, authLoading, logout } = useAuth(); // Get auth state from context
+
+    if (!authLoading) {
+       navigate("/")
+    }
 
     const items = [
         {
