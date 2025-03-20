@@ -1,0 +1,749 @@
+ALTER TABLE `stalls`
+  ADD PRIMARY KEY (`id`),
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- Then create rooms with a stall_id reference
+CREATE TABLE `rooms` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `stall_id` int(11) NOT NULL,
+  `roomName` varchar(50) NOT NULL,
+  `size` varchar(50) DEFAULT NULL,
+  `monthlyRent` decimal(10,2) DEFAULT NULL,
+  `eeuReader` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_stall_id_idx` (`stall_id`),
+  CONSTRAINT `fk_stall_id` FOREIGN KEY (`stall_id`) REFERENCES `stalls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+const db = require('../db/connection');
+
+// Create a new stall
+exports.createStall = async (req, res) => {
+  const { stallCode, building_id } = req.body;
+
+  if (!stallCode || !building_id) {
+    return res.status(400).json({ error: 'Both stallCode and building_id are required' });
+  }
+
+  const queryInsert = "INSERT INTO stalls (stallCode, building_id) VALUES (?, ?)";
+  try {
+    const [result] = await db.query(queryInsert, [stallCode, building_id]);
+    return res.status(201).json({ message: 'Stall created successfully', id: result.insertId });
+  } catch (err) {
+    console.error("Error creating stall:", err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Retrieve all stalls
+exports.getStalls = async (req, res) => {
+  const query = "SELECT * FROM stalls";
+  try {
+    const [results] = await db.query(query);
+    return res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching stalls:", err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update stall details (for example, stallCode and building_id)
+exports.updateStallDetails = async (req, res) => {
+  const stallId = req.params.stallId;
+  const { stallCode, building_id } = req.body;
+
+  const query = "UPDATE stalls SET stallCode = ?, building_id = ? WHERE id = ?";
+  try {
+    const [result] = await db.query(query, [stallCode, building_id, stallId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Stall not found' });
+    }
+    return res.status(200).json({ message: 'Stall updated successfully' });
+  } catch (err) {
+    console.error("Error updating stall:", err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Delete a stall
+exports.deleteStall = async (req, res) => {
+  const stallId = req.params.stallId;
+  const query = "DELETE FROM stalls WHERE id = ?";
+  try {
+    const [result] = await db.query(query, [stallId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Stall not found' });
+    }
+    return res.status(200).json({ message: 'Stall deleted successfully' });
+  } catch (err) {
+    console.error("Error deleting stall:", err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+/* --- ROOM CONTROLLER FUNCTIONS (using the separate 'rooms' table) --- */
+
+// Create a new room for a stall
+exports.createRoom = async (req, res) => {
+  const stallId = req.params.stallId;
+  const { roomName, size, monthlyRent, eeuReader } = req.body;
+
+  try {
+    // Verify that the stall exists.
+    const [stallRows] = await db.query("SELECT * FROM stalls WHERE id = ?", [stallId]);
+    if (stallRows.length === 0) {
+      return res.status(404).json({ error: "Stall not found" });
+    }
+
+    // Insert a new room entry linked to the stall.
+    const query = "INSERT INTO rooms (stall_id, roomName, size, monthlyRent, eeuReader) VALUES (?, ?, ?, ?, ?)";
+    const [result] = await db.query(query, [stallId, roomName, size, monthlyRent, eeuReader]);
+    return res.status(201).json({ message: "Room created successfully", roomId: result.insertId });
+  } catch (err) {
+    console.error("Error creating room:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Retrieve all rooms for a specific stall
+exports.getRooms = async (req, res) => {
+  const stallId = req.params.stallId;
+  try {
+    // Optional: Verify that the stall exists.
+    const [stallRows] = await db.query("SELECT * FROM stalls WHERE id = ?", [stallId]);
+    if (stallRows.length === 0) {
+      return res.status(404).json({ error: "Stall not found" });
+    }
+
+    const query = "SELECT * FROM rooms WHERE stall_id = ?";
+    const [rooms] = await db.query(query, [stallId]);
+    return res.status(200).json(rooms);
+  } catch (err) {
+    console.error("Error fetching rooms:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const express = require('express');
+const router = express.Router();
+const stallController = require('../controller/stallController');
+
+// Stall endpoints
+router.get('/', stallController.getStalls);
+router.post('/', stallController.createStall);
+router.put('/:stallId', stallController.updateStallDetails);
+router.delete('/:stallId', stallController.deleteStall);
+
+// Room endpoints (using stallId as the parent identifier)
+router.post('/:stallId/rooms', stallController.createRoom);
+router.get('/:stallId/rooms', stallController.getRooms);
+
+module.exports = router;
+
+
+
+import React, { useState, useEffect } from 'react';
+import { Tabs, Table, Button, Modal, Form, Input, InputNumber, Row, Col, Select, Space, message } from 'antd';
+import axios from 'axios';
+
+const { TabPane } = Tabs;
+const { Option } = Select;
+
+const StallManagement = () => {
+  // Form instances
+  const [stallForm] = Form.useForm(); // For creating new stalls
+  const [roomForm] = Form.useForm();   // For adding a new room
+
+  // States for stalls and rooms
+  const [stalls, setStalls] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [selectedStall, setSelectedStall] = useState(null);
+
+  // Modal visibility states
+  const [isStallModalVisible, setIsStallModalVisible] = useState(false);
+  const [isRoomModalVisible, setIsRoomModalVisible] = useState(false);
+
+  // Loading states
+  const [loading, setLoading] = useState(false);
+  const [roomLoading, setRoomLoading] = useState(false);
+
+  // Fetch stalls when the component mounts
+  useEffect(() => {
+    fetchStalls();
+  }, []);
+
+  // When a stall is selected in the Rooms tab, fetch its rooms.
+  useEffect(() => {
+    if (selectedStall) {
+      fetchRooms(selectedStall);
+    } else {
+      setRooms([]);
+    }
+  }, [selectedStall]);
+
+  // Get all stalls from the backend.
+  const fetchStalls = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('http://localhost:5000/stalls');
+      setStalls(response.data);
+    } catch (error) {
+      message.error("Failed to fetch stalls");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get rooms for a specific stall (using stallId).
+  const fetchRooms = async (stallId) => {
+    setRoomLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:5000/stalls/${stallId}/rooms`);
+      setRooms(response.data);
+    } catch (error) {
+      message.error("Failed to fetch rooms");
+    } finally {
+      setRoomLoading(false);
+    }
+  };
+
+  // Create a new stall.
+  const handleCreateStall = async () => {
+    try {
+      const values = await stallForm.validateFields();
+      const { stallCode, building_id } = values;
+      await axios.post('http://localhost:5000/stalls', { stallCode, building_id });
+      message.success("Stall created successfully!");
+      fetchStalls();
+      stallForm.resetFields();
+      setIsStallModalVisible(false);
+    } catch (error) {
+      message.error("Failed to create stall");
+    }
+  };
+
+  // Create a new room for the selected stall.
+  const handleCreateRoom = async () => {
+    try {
+      const values = await roomForm.validateFields();
+      const { stallId, roomName, size, monthlyRent, eeuReader } = values;
+      await axios.post(`http://localhost:5000/stalls/${stallId}/rooms`, { roomName, size, monthlyRent, eeuReader });
+      message.success("Room created successfully!");
+      // If added room belongs to the currently selected stall, refresh rooms.
+      if (selectedStall === stallId) {
+        fetchRooms(stallId);
+      }
+      roomForm.resetFields();
+      setIsRoomModalVisible(false);
+    } catch (error) {
+      message.error("Failed to create room");
+    }
+  };
+
+  // Delete a stall by its id.
+  const handleDeleteStall = async (stallId) => {
+    try {
+      await axios.delete(`http://localhost:5000/stalls/${stallId}`);
+      message.success("Stall deleted successfully!");
+      fetchStalls();
+      // Also clear rooms if the deleted stall is currently selected.
+      if (selectedStall === stallId) {
+        setSelectedStall(null);
+        setRooms([]);
+      }
+    } catch (error) {
+      message.error("Failed to delete stall");
+    }
+  };
+
+  // Define table columns for the stall list.
+  const stallColumns = [
+    { title: 'Stall Code', dataIndex: 'stallCode', key: 'stallCode' },
+    { title: 'Building ID', dataIndex: 'building_id', key: 'building_id' },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" onClick={() => {
+              // Open the Add Room modal; pre-select this stall for room creation.
+              roomForm.setFieldsValue({ stallId: record.id });
+              setIsRoomModalVisible(true);
+          }}>
+            Add Room
+          </Button>
+          <Button type="link" danger onClick={() => handleDeleteStall(record.id)}>
+            Delete
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
+  // Define table columns for the room list.
+  const roomColumns = [
+    { title: 'Room Name', dataIndex: 'roomName', key: 'roomName' },
+    { title: 'Size', dataIndex: 'size', key: 'size' },
+    { title: 'Monthly Rent', dataIndex: 'monthlyRent', key: 'monthlyRent' },
+    { title: 'EEU Reader', dataIndex: 'eeuReader', key: 'eeuReader' },
+    { title: 'Created At', dataIndex: 'created_at', key: 'created_at' }
+  ];
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <Tabs defaultActiveKey="stalls">
+        <TabPane tab="Stalls" key="stalls">
+          <Space style={{ marginBottom: 16 }}>
+            <Button type="default" onClick={() => setIsStallModalVisible(true)}>
+              Create Stall
+            </Button>
+            <Button type="primary" onClick={() => setIsRoomModalVisible(true)}>
+              Add Room
+            </Button>
+          </Space>
+          <Table 
+            columns={stallColumns}
+            dataSource={stalls}
+            rowKey="id"
+            loading={loading}
+          />
+        </TabPane>
+        <TabPane tab="Rooms" key="rooms">
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={8}>
+              <Select
+                placeholder="Select Stall"
+                style={{ width: '100%' }}
+                value={selectedStall}
+                onChange={(value) => setSelectedStall(value)}
+              >
+                {stalls.map(stall => (
+                  <Option key={stall.id} value={stall.id}>
+                    {stall.stallCode}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
+          </Row>
+          <Table 
+            columns={roomColumns}
+            dataSource={rooms}
+            rowKey="id"
+            loading={roomLoading}
+          />
+        </TabPane>
+      </Tabs>
+
+      {/* Modal for Creating New Stalls */}
+      <Modal
+        title="Create New Stall"
+        visible={isStallModalVisible}
+        onCancel={() => {
+          stallForm.resetFields();
+          setIsStallModalVisible(false);
+        }}
+        footer={null}
+      >
+        <Form
+          form={stallForm}
+          layout="vertical"
+          onFinish={handleCreateStall}
+        >
+          <Form.Item 
+            name="stallCode" 
+            label="Stall Code" 
+            rules={[{ required: true, message: "Please enter the stall code" }]}
+          >
+            <Input placeholder="Enter stall code" />
+          </Form.Item>
+          <Form.Item 
+            name="building_id" 
+            label="Building ID" 
+            rules={[{ required: true, message: "Please enter the building ID" }]}
+          >
+            <Input placeholder="Enter building ID" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit">
+            Create Stall
+          </Button>
+        </Form>
+      </Modal>
+
+      {/* Modal for Adding a Room */}
+      <Modal
+        title="Add Room"
+        visible={isRoomModalVisible}
+        onCancel={() => {
+          roomForm.resetFields();
+          setIsRoomModalVisible(false);
+        }}
+        footer={null}
+      >
+        <Form
+          form={roomForm}
+          layout="vertical"
+          onFinish={handleCreateRoom}
+        >
+          <Form.Item 
+            name="stallId" 
+            label="Stall" 
+            rules={[{ required: true, message: "Please select a stall" }]}
+          >
+            <Select placeholder="Select stall">
+              {stalls.map(stall => (
+                <Option key={stall.id} value={stall.id}>
+                  {stall.stallCode}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item 
+            name="roomName" 
+            label="Room Name" 
+            rules={[{ required: true, message: "Please enter the room name" }]}
+          >
+            <Input placeholder="Enter room name" />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                name="size" 
+                label="Size" 
+                rules={[{ required: true, message: "Please enter the room size" }]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                name="monthlyRent" 
+                label="Monthly Rent" 
+                rules={[{ required: true, message: "Please enter the monthly rent" }]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item 
+            name="eeuReader" 
+            label="EEU Reader"
+          >
+            <Input placeholder="Enter EEU Reader" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit">
+            Save Room
+          </Button>
+        </Form>
+      </Modal>
+    </div>
+  );
+};
+
+export default StallManagement;
+
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+import { Tabs, Table, Button, Modal, Form, Input, InputNumber, Row, Col, Select, Space, message } from 'antd';
+import axios from 'axios';
+
+const { TabPane } = Tabs;
+const { Option } = Select;
+
+const StallManagement = () => {
+  // Form instances
+  const [stallForm] = Form.useForm(); // For creating new stalls
+  const [roomForm] = Form.useForm();   // For adding a new room
+
+  // States for stalls and rooms
+  const [stalls, setStalls] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [selectedStall, setSelectedStall] = useState(null);
+
+  // Modal visibility states
+  const [isStallModalVisible, setIsStallModalVisible] = useState(false);
+  const [isRoomModalVisible, setIsRoomModalVisible] = useState(false);
+
+  // Loading states
+  const [loading, setLoading] = useState(false);
+  const [roomLoading, setRoomLoading] = useState(false);
+
+  // Fetch stalls when the component mounts
+  useEffect(() => {
+    fetchStalls();
+  }, []);
+
+  // When a stall is selected in the Rooms tab, fetch its rooms.
+  useEffect(() => {
+    if (selectedStall) {
+      fetchRooms(selectedStall);
+    } else {
+      setRooms([]);
+    }
+  }, [selectedStall]);
+
+  // Get all stalls from the backend.
+  const fetchStalls = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('http://localhost:5000/stalls');
+      setStalls(response.data);
+    } catch (error) {
+      message.error("Failed to fetch stalls");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get rooms for a specific stall (using stallId).
+  const fetchRooms = async (stallId) => {
+    setRoomLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:5000/stalls/${stallId}/rooms`);
+      setRooms(response.data);
+    } catch (error) {
+      message.error("Failed to fetch rooms");
+    } finally {
+      setRoomLoading(false);
+    }
+  };
+
+  // Create a new stall.
+  const handleCreateStall = async () => {
+    try {
+      const values = await stallForm.validateFields();
+      const { stallCode, building_id } = values;
+      await axios.post('http://localhost:5000/stalls', { stallCode, building_id });
+      message.success("Stall created successfully!");
+      fetchStalls();
+      stallForm.resetFields();
+      setIsStallModalVisible(false);
+    } catch (error) {
+      message.error("Failed to create stall");
+    }
+  };
+
+  // Create a new room for the selected stall.
+  const handleCreateRoom = async () => {
+    try {
+      const values = await roomForm.validateFields();
+      const { stallId, roomName, size, monthlyRent, eeuReader } = values;
+      await axios.post(`http://localhost:5000/stalls/${stallId}/rooms`, { roomName, size, monthlyRent, eeuReader });
+      message.success("Room created successfully!");
+      // If added room belongs to the currently selected stall, refresh rooms.
+      if (selectedStall === stallId) {
+        fetchRooms(stallId);
+      }
+      roomForm.resetFields();
+      setIsRoomModalVisible(false);
+    } catch (error) {
+      message.error("Failed to create room");
+    }
+  };
+
+  // Delete a stall by its id.
+  const handleDeleteStall = async (stallId) => {
+    try {
+      await axios.delete(`http://localhost:5000/stalls/${stallId}`);
+      message.success("Stall deleted successfully!");
+      fetchStalls();
+      // Also clear rooms if the deleted stall is currently selected.
+      if (selectedStall === stallId) {
+        setSelectedStall(null);
+        setRooms([]);
+      }
+    } catch (error) {
+      message.error("Failed to delete stall");
+    }
+  };
+
+  // Define table columns for the stall list.
+  const stallColumns = [
+    { title: 'Stall Code', dataIndex: 'stallCode', key: 'stallCode' },
+    { title: 'Building ID', dataIndex: 'building_id', key: 'building_id' },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" onClick={() => {
+              // Open the Add Room modal; pre-select this stall for room creation.
+              roomForm.setFieldsValue({ stallId: record.id });
+              setIsRoomModalVisible(true);
+          }}>
+            Add Room
+          </Button>
+          <Button type="link" danger onClick={() => handleDeleteStall(record.id)}>
+            Delete
+          </Button>
+        </Space>
+      )
+    }
+  ];
+
+  // Define table columns for the room list.
+  const roomColumns = [
+    { title: 'Room Name', dataIndex: 'roomName', key: 'roomName' },
+    { title: 'Size', dataIndex: 'size', key: 'size' },
+    { title: 'Monthly Rent', dataIndex: 'monthlyRent', key: 'monthlyRent' },
+    { title: 'EEU Reader', dataIndex: 'eeuReader', key: 'eeuReader' },
+    { title: 'Created At', dataIndex: 'created_at', key: 'created_at' }
+  ];
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <Tabs defaultActiveKey="stalls">
+        <TabPane tab="Stalls" key="stalls">
+          <Space style={{ marginBottom: 16 }}>
+            <Button type="default" onClick={() => setIsStallModalVisible(true)}>
+              Create Stall
+            </Button>
+            <Button type="primary" onClick={() => setIsRoomModalVisible(true)}>
+              Add Room
+            </Button>
+          </Space>
+          <Table 
+            columns={stallColumns}
+            dataSource={stalls}
+            rowKey="id"
+            loading={loading}
+          />
+        </TabPane>
+        <TabPane tab="Rooms" key="rooms">
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={8}>
+              <Select
+                placeholder="Select Stall"
+                style={{ width: '100%' }}
+                value={selectedStall}
+                onChange={(value) => setSelectedStall(value)}
+              >
+                {stalls.map(stall => (
+                  <Option key={stall.id} value={stall.id}>
+                    {stall.stallCode}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
+          </Row>
+          <Table 
+            columns={roomColumns}
+            dataSource={rooms}
+            rowKey="id"
+            loading={roomLoading}
+          />
+        </TabPane>
+      </Tabs>
+
+      {/* Modal for Creating New Stalls */}
+      <Modal
+        title="Create New Stall"
+        visible={isStallModalVisible}
+        onCancel={() => {
+          stallForm.resetFields();
+          setIsStallModalVisible(false);
+        }}
+        footer={null}
+      >
+        <Form
+          form={stallForm}
+          layout="vertical"
+          onFinish={handleCreateStall}
+        >
+          <Form.Item 
+            name="stallCode" 
+            label="Stall Code" 
+            rules={[{ required: true, message: "Please enter the stall code" }]}
+          >
+            <Input placeholder="Enter stall code" />
+          </Form.Item>
+          <Form.Item 
+            name="building_id" 
+            label="Building ID" 
+            rules={[{ required: true, message: "Please enter the building ID" }]}
+          >
+            <Input placeholder="Enter building ID" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit">
+            Create Stall
+          </Button>
+        </Form>
+      </Modal>
+
+      {/* Modal for Adding a Room */}
+      <Modal
+        title="Add Room"
+        visible={isRoomModalVisible}
+        onCancel={() => {
+          roomForm.resetFields();
+          setIsRoomModalVisible(false);
+        }}
+        footer={null}
+      >
+        <Form
+          form={roomForm}
+          layout="vertical"
+          onFinish={handleCreateRoom}
+        >
+          <Form.Item 
+            name="stallId" 
+            label="Stall" 
+            rules={[{ required: true, message: "Please select a stall" }]}
+          >
+            <Select placeholder="Select stall">
+              {stalls.map(stall => (
+                <Option key={stall.id} value={stall.id}>
+                  {stall.stallCode}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item 
+            name="roomName" 
+            label="Room Name" 
+            rules={[{ required: true, message: "Please enter the room name" }]}
+          >
+            <Input placeholder="Enter room name" />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                name="size" 
+                label="Size" 
+                rules={[{ required: true, message: "Please enter the room size" }]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                name="monthlyRent" 
+                label="Monthly Rent" 
+                rules={[{ required: true, message: "Please enter the monthly rent" }]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item 
+            name="eeuReader" 
+            label="EEU Reader"
+          >
+            <Input placeholder="Enter EEU Reader" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit">
+            Save Room
+          </Button>
+        </Form>
+      </Modal>
+    </div>
+  );
+};
+
+export default StallManagement;
