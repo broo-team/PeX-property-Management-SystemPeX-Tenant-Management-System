@@ -69,7 +69,7 @@ const App = () => {
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
     const { owner, authLoading, logout } = useAuth(); // Get auth state from context
 
-    if (!authLoading) {
+    if (!owner) {
        navigate("/")
     }
 
