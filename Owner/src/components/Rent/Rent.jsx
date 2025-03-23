@@ -41,26 +41,32 @@ const isPaidOrApproved = (status) => {
   Otherwise, if the due date has passed, we extend the previous due date by the payment term.
 */
 const buildGenerateBillPayload = (record) => {
+  // Extract the term in days (e.g., "60 days")
   const termDays = parseInt(record.term, 10);
   const now = moment();
+  
   let extraDays = 0;
-
-  if (record.dueDate) {
+  
+  // Only compute extraDays if this record is NOT an initial registration.
+  if (!record.initialRegistration && record.dueDate) {
     const diff = moment(record.dueDate).diff(now, "days");
     if (diff > 0) {
       extraDays = diff;
     }
   }
-
+  
+  // The extended term becomes base term plus any extra days.
   const extendedTerm = termDays + extraDays;
-  const newDueDate = moment().add(extendedTerm, "days").format("YYYY-MM-DD");
+  // Calculate the new due date as now + extendedTerm in days.
+  const newDueDate = moment(now).add(extendedTerm, "days").format("YYYY-MM-DD");
+  // Convert the term (in days) to months (assuming 30 days/month)
   const termMonths = extendedTerm / 30;
-
+  
   return {
     tenant_id: record.key,
     bill_date: now.format("YYYY-MM-DD"),
     due_date: newDueDate,
-    amount: record.rentAmount * termMonths,
+    amount: record.monthly_rent * termMonths,
   };
 };
 
@@ -93,20 +99,20 @@ const Rent = () => {
       const bills = billRes.data;
   
       const mergedData = tenants.map((tenant) => {
-        // Get the raw payment term value.
+        // Get the raw payment term value. Assume if > 12, it's days; otherwise, it's months.
         const termRaw = Number(tenant.payment_term) || 30;
         let termDays, termMonths;
         
-        // Determine whether the payment term is given in days or months.
-        // If termRaw is greater than 12, assume it's days (e.g. "60" means 60 days).
         if (termRaw > 12) {
+          // E.g. payment_term "60" means 60 days (i.e. 2 months)
           termDays = termRaw;
           termMonths = termRaw / 30;
         } else {
+          // Otherwise, assume the term is provided in months.
           termMonths = termRaw;
           termDays = termRaw * 30;
         }
-  
+        
         // Use the monthlyRent field as the monthly rent.
         const monthlyRent = parseFloat(tenant.monthlyRent) || 0;
   
@@ -116,7 +122,7 @@ const Rent = () => {
         );
   
         if (tenantBill) {
-          // For an existing bill, compute next due date based on the bill_date or due_date.
+          // For an existing bill, calculate next due date based on bill_date or due_date.
           const cycleStart = tenantBill.bill_date
             ? moment(tenantBill.bill_date)
             : moment(tenantBill.due_date);
@@ -124,7 +130,7 @@ const Rent = () => {
           const daysLeft = nextDueDateMoment.diff(moment(), "days");
   
           // If the last bill is paid/approved and the remaining days are low,
-          // mark billGenerated as false so that auto-generation is triggered.
+          // mark billGenerated as false so auto-generation can trigger.
           const readyForRenewal =
             isPaidOrApproved(tenantBill.payment_status) &&
             daysLeft <= AUTO_RENEW_THRESHOLD;
@@ -145,43 +151,48 @@ const Rent = () => {
             status: tenantBill.payment_status,
             proof: tenantBill.payment_proof_url || "",
             approved: isPaidOrApproved(tenantBill.payment_status),
-            billGenerated: !readyForRenewal, // if renewal is near, mark it as not generated
+            billGenerated: !readyForRenewal, // When nearing renewal, set to false
             billAutoTriggered: false,
             nextDueDate: nextDueDateMoment.format("YYYY-MM-DD"),
             daysLeft,
           };
         } else {
-          // For a new tenant registration who has already paid:
+          // For a new tenant registration who has already paid.
+          // Use the tenant's rent_end_date as the due date for the first paid cycle.
           const dueDate = tenant.rent_end_date
             ? tenant.rent_end_date.split("T")[0]
             : moment().add(termDays, "days").format("YYYY-MM-DD");
           const daysLeft = moment(dueDate).diff(moment(), "days");
           const totalRentDue = monthlyRent * termMonths;
+          
+          // Check if the days left is within the auto-generation threshold.
+          const autoTriggerForNew = daysLeft <= AUTO_RENEW_THRESHOLD;
+          // If within threshold, set billGenerated to false so auto-generation will kick in.
+          const billGenerated = !autoTriggerForNew;
   
-          // Mark record as already paid and billGenerated so that auto-generation will not trigger.
           return {
             key: tenant.id.toString(),
             billId: null,
             name: tenant.full_name,
             room: tenant.room,
             term: `${termDays} days`,
-            dueDate, // tenant's rent_end_date is used as the initially paid period.
-            billDate: dueDate, // Set billDate to dueDate to avoid re-triggering
+            dueDate, // Tenant's pay period end date.
+            billDate: dueDate, // Use dueDate as the initial bill date.
             rentAmount: monthlyRent,
             penalty: 0,
             totalDue: totalRentDue,
-            status: "Paid",          // Mark as Paid.
+            status: "Paid",         // Mark as already paid.
             proof: "",
-            approved: true,          // Already approved, since it's paid.
-            billGenerated: true,     // Mark as generated so auto-generation is not triggered.
+            approved: true,         // Already approved because it's been paid.
+            billGenerated,          // Dynamically set based on days left.
             billAutoTriggered: false,
             nextDueDate: dueDate,
             daysLeft,
-            initialRegistration: true, // Optional flag if you need to identify first-time registrations
+            initialRegistration: true, // Optional if you need to know it's first time.
           };
         }
       });
-  
+      
       setData(mergedData);
     } catch (error) {
       console.error("Error fetching merged data:", error);
