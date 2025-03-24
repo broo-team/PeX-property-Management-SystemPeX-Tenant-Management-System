@@ -136,7 +136,7 @@ exports.approvePayment = async (req, res) => {
   }
 };
 
-// Update overdue bills with penalty calculation.
+//x Update overdue bills with penalty calculation.
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(
