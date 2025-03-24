@@ -351,7 +351,7 @@ const Rent = () => {
     return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
       <Tag color="blue">{record.daysLeft} days left</Tag>
     ) : (
-      <Tag color="orange">Auto Generating...</Tag>
+      <Tag color="red">Auto Generating...</Tag>
     );
   };
 
