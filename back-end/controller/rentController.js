@@ -1,7 +1,7 @@
 // controllers/rentController.js
 const db = require("../db/connection");
-const dayjs = require("dayjs");
-
+// const dayjs = require("dayjs");
+const moment = require("moment");
 // Get all rent bills.
 exports.getBills = async (req, res) => {
   try {
@@ -149,7 +149,6 @@ exports.approvePayment = async (req, res) => {
   }
 };
 
-// Update overdue bills with penalty calculation.
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(
@@ -162,17 +161,22 @@ exports.updateOverdueBills = async (req, res) => {
     }
 
     const updates = [];
-    const currentDate = new Date();
+    // Use UTC and start the day so that we compare whole days only.
+    const currentDate = moment.utc().startOf("day");
 
     for (const bill of bills) {
-      const dueDate = new Date(bill.due_date);
+      // Parse due_date in UTC. This helps if the due_date is stored as an ISO string.
+      const dueDate = moment.utc(bill.due_date).startOf("day");
 
-      if (currentDate > dueDate) {
-        const daysOverdue = Math.floor(
-          (currentDate - dueDate) / (1000 * 60 * 60 * 24)
-        );
+      if (currentDate.isAfter(dueDate)) {
+        // Calculate whole days overdue.
+        const daysOverdue = currentDate.diff(dueDate, "days");
         const dailyPenaltyRate = 0.01;
-        const newPenalty = bill.amount * dailyPenaltyRate * daysOverdue;
+        const newPenalty = parseFloat(bill.amount) * dailyPenaltyRate * daysOverdue;
+
+        console.log(
+          `Bill ${bill.id} is overdue by ${daysOverdue} day(s). New penalty: ${newPenalty}`
+        );
 
         updates.push(
           db.query(
@@ -202,7 +206,6 @@ exports.updateOverdueBills = async (req, res) => {
       .json({ message: "Server error while updating overdue bills." });
   }
 };
-
 // Get a single rent bill by ID.
 exports.getBillById = async (req, res) => {
   try {
@@ -210,8 +213,7 @@ exports.getBillById = async (req, res) => {
     const [rows] = await db.query(
       "SELECT * FROM monthly_rent_bills WHERE id = ?",
       [billId]
-    );
-
+    )
     if (rows.length === 0) {
       return res.status(404).json({ message: "Bill not found." });
     }
