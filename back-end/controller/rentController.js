@@ -148,11 +148,10 @@ exports.approvePayment = async (req, res) => {
       .json({ message: "Server error while approving payment." });
   }
 };
-
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(
-      `SELECT id, due_date, amount, payment_status FROM monthly_rent_bills 
+      `SELECT id, due_date, amount, payment_status, original_due_date FROM monthly_rent_bills 
        WHERE payment_status NOT IN ('approved', 'paid')`
     );
 
@@ -161,16 +160,16 @@ exports.updateOverdueBills = async (req, res) => {
     }
 
     const updates = [];
-    // Use UTC and start the day so that we compare whole days only.
     const currentDate = moment.utc().startOf("day");
 
     for (const bill of bills) {
-      // Parse due_date in UTC. This helps if the due_date is stored as an ISO string.
-      const dueDate = moment.utc(bill.due_date).startOf("day");
+      // Use original_due_date if available, otherwise use due_date.
+      const penaltyDueDate = bill.original_due_date
+        ? moment.utc(bill.original_due_date).startOf("day")
+        : moment.utc(bill.due_date).startOf("day");
 
-      if (currentDate.isAfter(dueDate)) {
-        // Calculate whole days overdue.
-        const daysOverdue = currentDate.diff(dueDate, "days");
+      if (currentDate.isAfter(penaltyDueDate)) {
+        const daysOverdue = currentDate.diff(penaltyDueDate, "days");
         const dailyPenaltyRate = 0.01;
         const newPenalty = parseFloat(bill.amount) * dailyPenaltyRate * daysOverdue;
 
@@ -206,6 +205,7 @@ exports.updateOverdueBills = async (req, res) => {
       .json({ message: "Server error while updating overdue bills." });
   }
 };
+
 // Get a single rent bill by ID.
 exports.getBillById = async (req, res) => {
   try {
