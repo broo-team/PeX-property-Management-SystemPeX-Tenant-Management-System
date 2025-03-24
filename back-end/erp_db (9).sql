@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 19, 2025 at 01:14 PM
+-- Generation Time: Mar 24, 2025 at 01:05 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -67,7 +67,9 @@ CREATE TABLE `monthly_rent_bills` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `totalDue` decimal(10,2) DEFAULT 0.00,
-  `payment_term` int(11) DEFAULT NULL
+  `payment_term` int(11) DEFAULT NULL,
+  `days_remaining` int(11) DEFAULT 0,
+  `original_due_date` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -86,6 +88,15 @@ CREATE TABLE `rooms` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `rooms`
+--
+
+INSERT INTO `rooms` (`id`, `stall_id`, `roomName`, `size`, `monthlyRent`, `eeuReader`, `created_at`) VALUES
+(1, 8, 'rom-5', '89708', 8970.00, '10000', '2025-03-19 12:58:33'),
+(2, 8, 'rom-5', '69898', 5000.00, '1000', '2025-03-19 12:59:21'),
+(3, 8, 'rom-22', '768', 2000.00, '1000', '2025-03-24 03:01:18');
+
 -- --------------------------------------------------------
 
 --
@@ -100,6 +111,13 @@ CREATE TABLE `stalls` (
   `monthlyRent` decimal(10,2) DEFAULT NULL,
   `floorsize` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `stalls`
+--
+
+INSERT INTO `stalls` (`id`, `stallCode`, `building_id`, `created_at`, `monthlyRent`, `floorsize`) VALUES
+(8, 'GROUND', 3, '2025-03-19 12:58:09', NULL, '700');
 
 -- --------------------------------------------------------
 
@@ -179,6 +197,13 @@ CREATE TABLE `utility_rates` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Dumping data for table `utility_rates`
+--
+
+INSERT INTO `utility_rates` (`id`, `electricity_rate`, `water_rate`, `generator_rate`, `created_at`) VALUES
+(1, 2.50, 1.50, 100.00, '2025-03-20 08:18:35');
+
+--
 -- Indexes for dumped tables
 --
 
@@ -249,31 +274,31 @@ ALTER TABLE `monthly_rent_bills`
 -- AUTO_INCREMENT for table `rooms`
 --
 ALTER TABLE `rooms`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `stalls`
 --
 ALTER TABLE `stalls`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `tenants`
 --
 ALTER TABLE `tenants`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=95;
 
 --
 -- AUTO_INCREMENT for table `tenant_utility_usage`
 --
 ALTER TABLE `tenant_utility_usage`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `utility_rates`
 --
 ALTER TABLE `utility_rates`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
