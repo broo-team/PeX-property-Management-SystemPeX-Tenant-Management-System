@@ -542,7 +542,7 @@ const RentInfo = (props) => {
                   }}
                 >
                   <CalendarOutlined style={{ marginRight: 8, color: "#457b9d" }} />
-                  <Text strong>Due Date:</Text>
+                  <Text strong>Due Dateww:</Text>
                   <Tag color={dueStatus.color} style={{ marginLeft: 8 }}>
                     {moment(billDetails.due_date).format("DD MMM YYYY")}
                   </Tag>
