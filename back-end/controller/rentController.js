@@ -186,6 +186,10 @@ exports.approvePayment = async (req, res) => {
 };
 
 // Update overdue bills with continuous penalty accrual and new month's rent.
+// Update overdue bills with capped penalty accumulation.
+// Once a new month begins (i.e. days overdue > payment_term),
+// the penalty is capped to the penalty for a single term,
+// while the new month's rent is added for each full cycle overdue.
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(
@@ -201,45 +205,36 @@ exports.updateOverdueBills = async (req, res) => {
     const updates = [];
     const currentDate = moment.utc().startOf("day");
 
-    // Loop through each unpaid bill.
     for (const bill of bills) {
-      // Use the stored due_date as the base (we assume it's stored as full datetime).
+      // Use the stored due_date as the base for accrual.
       const baseDueDate = moment.utc(bill.due_date).startOf("day");
-
       if (currentDate.isAfter(baseDueDate)) {
-        // Compute how many days have passed since the due date.
         const daysOverdue = currentDate.diff(baseDueDate, "days");
-
-        // Calculate penalty using a daily rate (here, 1% of monthly rent per day overdue).
         const dailyPenaltyRate = 0.01;
-        const newPenalty = parseFloat(bill.amount) * dailyPenaltyRate * daysOverdue;
 
-        // Determine how many full payment cycles have passed beyond due_date.
-        // For example, if the term is 30 days and daysOverdue is 45, then monthsOverdue = floor(45/30) = 1.
+        // Cap the overdue days used for penalty calculation to one payment term.
+        const effectiveOverdueDays = Math.min(daysOverdue, bill.payment_term);
+        const newPenalty = parseFloat(bill.amount) * dailyPenaltyRate * effectiveOverdueDays;
+
+        // Calculate how many full cycles (months) have passed.
         const monthsOverdue = Math.floor(daysOverdue / bill.payment_term);
 
-        // The new Total Due should incorporate:
-        // • The original monthly rent (bill.amount) for the overdue cycle,
-        // • Plus new month's rent for each full cycle missed,
-        // • Plus the accumulated penalty.
-        const newTotalDue =
-          parseFloat(bill.amount) * (1 + monthsOverdue) + newPenalty;
+        // The new total due is computed as:
+        //   (Original monthly rent * (1 + the number of full cycles overdue))
+        //   plus the capped penalty.
+        const newTotalDue = parseFloat(bill.amount) * (1 + monthsOverdue) + newPenalty;
 
         updates.push(
           db.query(
-            `UPDATE monthly_rent_bills 
-             SET penalty = ?, totalDue = ? 
-             WHERE id = ?`,
+            `UPDATE monthly_rent_bills SET penalty = ?, totalDue = ? WHERE id = ?`,
             [newPenalty, newTotalDue, bill.id]
           )
         );
       } else {
-        // Not overdue: reset penalty and keep totalDue unchanged.
+        // Not overdue — reset penalty.
         updates.push(
           db.query(
-            `UPDATE monthly_rent_bills 
-             SET penalty = ?, totalDue = amount 
-             WHERE id = ?`,
+            `UPDATE monthly_rent_bills SET penalty = ?, totalDue = amount WHERE id = ?`,
             [0, bill.id]
           )
         );
@@ -247,16 +242,15 @@ exports.updateOverdueBills = async (req, res) => {
     }
 
     await Promise.all(updates);
-
     res.json({
       message:
-        "Overdue bills updated with penalty, and new month's rent included for overdue cycles.",
+        "Overdue bills updated with capped penalty and new month's rent correctly factored in.",
     });
   } catch (error) {
     console.error("Error updating overdue bills:", error);
-    res.status(500).json({
-      message: "Server error while updating overdue bills.",
-    });
+    res
+      .status(500)
+      .json({ message: "Server error while updating overdue bills." });
   }
 };
 

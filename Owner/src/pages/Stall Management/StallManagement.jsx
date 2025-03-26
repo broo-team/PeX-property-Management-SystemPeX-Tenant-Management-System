@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Tabs, 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  InputNumber, 
-  Row, 
-  Col, 
-  Space, 
-  Select, 
-  message 
+import {
+  Tabs,
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Row,
+  Col,
+  Space,
+  Select,
+  message,
 } from 'antd';
 import axios from 'axios';
 
@@ -37,10 +37,10 @@ const StallManagement = () => {
   const [editingRoom, setEditingRoom] = useState(null);
 
   // Modal visibility states
-  const [isStallModalVisible, setIsStallModalVisible] = useState(false);         // Create Stall
-  const [isStallEditModalVisible, setIsStallEditModalVisible] = useState(false);     // Edit Stall
-  const [isRoomEditModalVisible, setIsRoomEditModalVisible] = useState(false);       // Edit Room
-  const [isRoomCreateModalVisible, setIsRoomCreateModalVisible] = useState(false);   // Create Room
+  const [isStallModalVisible, setIsStallModalVisible] = useState(false); // Create Stall
+  const [isStallEditModalVisible, setIsStallEditModalVisible] = useState(false); // Edit Stall
+  const [isRoomEditModalVisible, setIsRoomEditModalVisible] = useState(false); // Edit Room
+  const [isRoomCreateModalVisible, setIsRoomCreateModalVisible] = useState(false); // Create Room
 
   // Loading states
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,7 @@ const StallManagement = () => {
       const response = await axios.get('http://localhost:5000/stalls');
       setStalls(response.data);
     } catch (error) {
-      message.error("Failed to fetch stalls");
+      message.error('Failed to fetch stalls');
     } finally {
       setLoading(false);
     }
@@ -74,12 +74,13 @@ const StallManagement = () => {
     try {
       const response = await axios.get('http://localhost:5000/stalls/getRooms');
       // Assume the API returns [[{...}, {...}, ...]] so we extract the first element.
-      const roomData = Array.isArray(response.data) && Array.isArray(response.data[0])
-        ? response.data[0]
-        : response.data;
+      const roomData =
+        Array.isArray(response.data) && Array.isArray(response.data[0])
+          ? response.data[0]
+          : response.data;
       setRooms(roomData);
     } catch (error) {
-      message.error("Failed to fetch rooms");
+      message.error('Failed to fetch rooms');
     } finally {
       setRoomLoading(false);
     }
@@ -91,16 +92,16 @@ const StallManagement = () => {
       const values = await stallForm.validateFields();
       const payload = {
         stallCode: values.stallCode,
-        floorsize:values.floorsize,
-        building_id: buildingId  // force to use the desired building id
+        floorsize: values.floorsize,
+        building_id: buildingId, // force to use the desired building id
       };
       await axios.post('http://localhost:5000/stalls', payload);
-      message.success("Stall created successfully!");
+      message.success('Stall created successfully!');
       fetchStalls();
       stallForm.resetFields();
       setIsStallModalVisible(false);
     } catch (error) {
-      message.error("Failed to create stall");
+      message.error('Failed to create stall');
     }
   };
 
@@ -108,11 +109,11 @@ const StallManagement = () => {
   const handleDeleteStall = async (stallId) => {
     try {
       await axios.delete(`http://localhost:5000/stalls/${stallId}`);
-      message.success("Stall deleted successfully!");
+      message.success('Stall deleted successfully!');
       fetchStalls();
       fetchRooms(); // refresh room data in case a deleted stall affected them
     } catch (error) {
-      message.error("Failed to delete stall");
+      message.error('Failed to delete stall');
     }
   };
 
@@ -121,7 +122,7 @@ const StallManagement = () => {
     setEditingStall(record);
     stallEditForm.setFieldsValue({
       stallCode: record.stallCode,
-      building_id: record.building_id
+      building_id: record.building_id,
     });
     setIsStallEditModalVisible(true);
   };
@@ -131,15 +132,15 @@ const StallManagement = () => {
     try {
       const payload = {
         stallCode: values.stallCode,
-        building_id: buildingId  // keep building_id fixed
+        building_id: buildingId, // keep building_id fixed
       };
-      await axios.put(`http://localhost:5000/stalls/${editingStall.id}`, payload);
-      message.success("Stall updated successfully!");
+      await axios.put(`http://localhost:5000/stalls/rooms/${editingStall.id}`, payload);
+      message.success('Stall updated successfully!');
       fetchStalls();
       setIsStallEditModalVisible(false);
       stallEditForm.resetFields();
     } catch (error) {
-      message.error("Failed to update stall");
+      message.error('Failed to update stall');
     }
   };
 
@@ -154,14 +155,14 @@ const StallManagement = () => {
         size,
         monthlyRent,
         eeuReader,
-        status
+        status,
       });
-      message.success("Room created successfully!");
+      message.success('Room created successfully!');
       fetchRooms();
       roomCreateForm.resetFields();
       setIsRoomCreateModalVisible(false);
     } catch (error) {
-      message.error("Failed to create room");
+      message.error('Failed to create room');
     }
   };
 
@@ -169,40 +170,85 @@ const StallManagement = () => {
   const handleDeleteRoom = async (roomId) => {
     try {
       await axios.delete(`http://localhost:5000/rooms/${roomId}`);
-      message.success("Room deleted successfully!");
+      message.success('Room deleted successfully!');
       fetchRooms();
     } catch (error) {
-      message.error("Failed to delete room");
+      message.error('Failed to delete room');
     }
   };
-
-  // Open modal to edit a room.
   const openRoomEditModal = (record) => {
+    console.log('Record being edited:', record);
     setEditingRoom(record);
-    roomEditForm.setFieldsValue({
-      roomName: record.roomName,
-      size: record.size,
-      monthlyRent: record.monthlyRent,
-      eeuReader: record.eeuReader,
-      status: record.status || "Available"
-    });
-    setIsRoomEditModalVisible(true);
-  };
 
+    // Retrieve the stallId from the record.
+    const stallId = record.stall_id;
+
+    // Set the form fields with the room data.
+    roomEditForm.setFieldsValue({
+        roomName: record.roomName,
+        size: record.size,
+        monthlyRent: record.monthlyRent,
+        eeuReader: record.eeuReader,
+        status: record.status || 'Available',
+    });
+
+    // Store the stallId in the editingRoom state, or in a seperate state variable.
+    setEditingStallId(stallId); // if using a new state variable.
+    // or
+    setEditingRoom({...record, stall_id: stallId}); // if updating the editing room record.
+
+    setIsRoomEditModalVisible(true);
+};
+
+// add a new state variable if you want to store the stall id seperately.
+const [editingStallId, setEditingStallId] = useState(null)
   // Update room details.
   const handleUpdateRoom = async (values) => {
     try {
-      await axios.put(`http://localhost:5000/rooms/${editingRoom.id}`, values);
-      message.success("Room updated successfully!");
+      // Explicitly convert size and monthlyRent to numbers
+      const size = Number(values.size);
+      const monthlyRent = Number(values.monthlyRent);
+
+      // Validate if the converted values are valid numbers
+      if (isNaN(size) || isNaN(monthlyRent)) {
+        message.error('Size and Monthly Rent must be valid numbers');
+        return; // Stop the request
+      }
+
+      // Validate roomName as a string
+      if (typeof values.roomName !== 'string') {
+        message.error('Room Name must be a string');
+        return;
+      }
+
+      console.log('Room ID being sent:', editingRoom.id);
+      console.log('Room ID being sent:', editingRoom.id);
+      console.log('Stall ID being sent:', editingRoom.stall_id);
+      // Send the updated data to the server
+      await axios.put(`http://localhost:5000/stalls/${editingRoom.stall_id}/rooms/${editingRoom.id}`, {
+        roomName: values.roomName,
+        size: size,
+        monthlyRent: monthlyRent,
+        eeuReader: values.eeuReader,
+        status: values.status,
+    })
+      message.success('Room updated successfully!');
       fetchRooms();
       setIsRoomEditModalVisible(false);
       roomEditForm.resetFields();
     } catch (error) {
-      message.error("Failed to update room");
+      // Improved error handling
+      if (error.response) {
+        message.error(
+          `Failed to update room: ${error.response.data.error ||
+            error.response.statusText}`
+        );
+      } else {
+        message.error('Failed to update room');
+      }
     }
   };
-
-  // Filter stalls by the defined building ID.
+  // Filter stalls by the defined
   const filteredStalls = stalls.filter(
     (stall) => Number(stall.building_id) === buildingId
   );
@@ -228,11 +274,15 @@ const StallManagement = () => {
       key: 'actions',
       render: (_, record) => (
         <Space size="middle">
-          <Button type="link" onClick={() => openStallEditModal(record)}>Edit</Button>
-          <Button type="link" danger onClick={() => handleDeleteStall(record.id)}>Delete</Button>
+          <Button type="link" onClick={() => openStallEditModal(record)}>
+            Edit
+          </Button>
+          <Button type="link" danger onClick={() => handleDeleteStall(record.id)}>
+            Delete
+          </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
   // Define table columns for the room list.
@@ -242,16 +292,16 @@ const StallManagement = () => {
       title: 'Stall Code',
       key: 'stallCode',
       render: (_, record) => {
-        const stall = stalls.find(s => s.id === record.stall_id);
+        const stall = stalls.find((s) => s.id === record.stall_id);
         return stall ? stall.stallCode : 'N/A';
-      }
+      },
     },
     { title: 'Room Name', dataIndex: 'roomName', key: 'roomName' },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => status ? status : 'Available'
+      render: (status) => (status ? status : 'Available'),
     },
     { title: 'Size', dataIndex: 'size', key: 'size' },
     { title: 'Monthly Rent', dataIndex: 'monthlyRent', key: 'monthlyRent' },
@@ -261,26 +311,28 @@ const StallManagement = () => {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Space size="middle">
-          <Button type="link" onClick={() => openRoomEditModal(record)}>Edit</Button>
-          <Button type="link" danger onClick={() => handleDeleteRoom(record.id)}>Delete</Button>
-        </Space>
-      )
-    }
+          <Space size="middle">
+              <Button type="link" onClick={() => openRoomEditModal(record)}>
+                  Edit
+              </Button>
+              <Button type="link" danger onClick={() => handleDeleteRoom(record.id)}>
+                  Delete
+              </Button>
+          </Space>
+      ),
+  },
   ];
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div style={{ padding: '20px' }}>
       <Button type="default" onClick={() => setIsStallModalVisible(true)}>
-              Create Stall
-            </Button>
+        Create Stall
+      </Button>
       <Tabs defaultActiveKey="stalls">
         {/* Stalls Tab */}
         <TabPane tab="Stalls" key="stalls">
-          <Space style={{ marginBottom: 16 }}>
-            
-          </Space>
-          <Table 
+          <Space style={{ marginBottom: 16 }}></Space>
+          <Table
             columns={stallColumns}
             dataSource={filteredStalls}
             rowKey="id"
@@ -302,7 +354,7 @@ const StallManagement = () => {
               style={{ width: 200 }}
             />
           </Space>
-          <Table 
+          <Table
             columns={roomColumns}
             dataSource={filteredRooms}
             rowKey="id"
@@ -321,30 +373,26 @@ const StallManagement = () => {
         }}
         footer={null}
       >
-        <Form
-          form={stallForm}
-          layout="vertical"
-          onFinish={handleCreateStall}
-        >
-          <Form.Item 
-            name="stallCode" 
-            label="Stall Code" 
-            rules={[{ required: true, message: "Please enter the stall code" }]}
+        <Form form={stallForm} layout="vertical" onFinish={handleCreateStall}>
+          <Form.Item
+            name="stallCode"
+            label="Stall Code"
+            rules={[{ required: true, message: 'Please enter the stall code' }]}
           >
             <Input placeholder="Enter stall code" />
           </Form.Item>
-          <Form.Item 
-            name="floorsize" 
-            label="Floor Size" 
-            rules={[{ required: true, message: "Please enter the Floor Size" }]}
+          <Form.Item
+            name="floorsize"
+            label="Floor Size"
+            rules={[{ required: true, message: 'Please enter the Floor Size' }]}
           >
             <Input placeholder="Enter floor size code" />
           </Form.Item>
-          <Form.Item 
-            name="building_id" 
-            label="Building ID" 
+          <Form.Item
+            name="building_id"
+            label="Building ID"
             initialValue={buildingId}
-            rules={[{ required: true, message: "Building ID is required" }]}
+            rules={[{ required: true, message: 'Building ID is required' }]}
           >
             <Input disabled />
           </Form.Item>
@@ -364,30 +412,26 @@ const StallManagement = () => {
         }}
         footer={null}
       >
-        <Form
-          form={stallEditForm}
-          layout="vertical"
-          onFinish={handleUpdateStall}
-        >
-          <Form.Item 
-            name="stallCode" 
-            label="Stall Code" 
-            rules={[{ required: true, message: "Please enter the stall code" }]}
+        <Form form={stallEditForm} layout="vertical" onFinish={handleUpdateStall}>
+          <Form.Item
+            name="stallCode"
+            label="Stall Code"
+            rules={[{ required: true, message: 'Please enter the stall code' }]}
           >
             <Input placeholder="Enter stall code" />
           </Form.Item>
-          <Form.Item 
-            name="floorsize" 
-            label="Floor Size" 
-            rules={[{ required: true, message: "Please enter the Floor Size" }]}
+          <Form.Item
+            name="floorsize"
+            label="Floor Size"
+            rules={[{ required: true, message: 'Please enter the Floor Size' }]}
           >
             <Input placeholder="Enter floor size code" />
           </Form.Item>
-          <Form.Item 
-            name="building_id" 
-            label="Building ID" 
+          <Form.Item
+            name="building_id"
+            label="Building ID"
             initialValue={buildingId}
-            rules={[{ required: true, message: "Building ID is required" }]}
+            rules={[{ required: true, message: 'Building ID is required' }]}
           >
             <Input disabled />
           </Form.Item>
@@ -407,59 +451,52 @@ const StallManagement = () => {
         }}
         footer={null}
       >
-        <Form
-          form={roomCreateForm}
-          layout="vertical"
-          onFinish={handleCreateRoom}
-        >
-          <Form.Item 
-            name="stall_id" 
+        <Form form={roomCreateForm} layout="vertical" onFinish={handleCreateRoom}>
+          <Form.Item
+            name="stall_id"
             label="Stall"
-            rules={[{ required: true, message: "Please select a stall" }]}
+            rules={[{ required: true, message: 'Please select a stall' }]}
           >
             <Select placeholder="Select stall">
-              {filteredStalls.map(stall => (
+              {filteredStalls.map((stall) => (
                 <Option key={stall.id} value={stall.id}>
                   {stall.stallCode}
                 </Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item 
-            name="roomName" 
-            label="Room Name" 
-            rules={[{ required: true, message: "Please enter the room name" }]}
+          <Form.Item
+            name="roomName"
+            label="Room Name"
+            rules={[{ required: true, message: 'Please enter the room name' }]}
           >
             <Input placeholder="Enter room name" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item 
-                name="size" 
-                label="Size" 
-                rules={[{ required: true, message: "Please enter the room size" }]}
+              <Form.Item
+                name="size"
+                label="Size"
+                rules={[{ required: true, message: 'Please enter the room size' }]}
               >
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
-            </Col>
+              </Col>
             <Col span={12}>
-              <Form.Item 
-                name="monthlyRent" 
-                label="Monthly Rent" 
-                rules={[{ required: true, message: "Please enter the monthly rent" }]}
+              <Form.Item
+                name="monthlyRent"
+                label="Monthly Rent"
+                rules={[{ required: true, message: 'Please enter the monthly rent' }]}
               >
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item 
-            name="eeuReader" 
-            label="EEU Reader"
-          >
+          <Form.Item name="eeuReader" label="EEU Reader">
             <Input placeholder="Enter EEU Reader" />
           </Form.Item>
-          {/* <Form.Item 
-            name="status" 
+          {/* <Form.Item
+            name="status"
             label="Status"
             rules={[{ required: true, message: "Please select room status" }]}
           >
@@ -484,46 +521,39 @@ const StallManagement = () => {
         }}
         footer={null}
       >
-        <Form
-          form={roomEditForm}
-          layout="vertical"
-          onFinish={handleUpdateRoom}
-        >
-          <Form.Item 
-            name="roomName" 
-            label="Room Name" 
-            rules={[{ required: true, message: "Please enter the room name" }]}
+        <Form form={roomEditForm} layout="vertical" onFinish={handleUpdateRoom}>
+          <Form.Item
+            name="roomName"
+            label="Room Name"
+            rules={[{ required: true, message: 'Please enter the room name' }]}
           >
             <Input placeholder="Enter room name" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item 
-                name="size" 
-                label="Size" 
-                rules={[{ required: true, message: "Please enter the room size" }]}
+              <Form.Item
+                name="size"
+                label="Size"
+                rules={[{ required: true, message: 'Please enter the room size' }]}
               >
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item 
-                name="monthlyRent" 
-                label="Monthly Rent" 
-                rules={[{ required: true, message: "Please enter the monthly rent" }]}
+              <Form.Item
+                name="monthlyRent"
+                label="Monthly Rent"
+                rules={[{ required: true, message: 'Please enter the monthly rent' }]}
               >
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item 
-            name="eeuReader" 
-            label="EEU Reader"
-          >
+          <Form.Item name="eeuReader" label="EEU Reader">
             <Input placeholder="Enter EEU Reader" />
           </Form.Item>
-          {/* <Form.Item 
-            name="status" 
+          {/* <Form.Item
+            name="status"
             label="Status"
             rules={[{ required: true, message: "Please select room status" }]}
           >

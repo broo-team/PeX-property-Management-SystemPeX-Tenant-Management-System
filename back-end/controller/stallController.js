@@ -290,3 +290,37 @@ exports.getRooms = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+
+// controllers/stallController.js
+
+// ... (other code)
+
+
+exports.updateRoom = async (req, res) => {
+  const { stallId, roomId } = req.params;
+  const { roomName, size, monthlyRent, eeuReader, status } = req.body;
+
+  try {
+      // Validate that the stall exists
+      const [stallRows] = await db.query("SELECT * FROM stalls WHERE id = ?", [stallId]);
+      if (stallRows.length === 0) {
+          return res.status(404).json({ error: "Stall not found" });
+      }
+
+      // Validate that the room exists and belongs to the stall
+      const [roomRows] = await db.query("SELECT * FROM rooms WHERE id = ? AND stall_id = ?", [roomId, stallId]);
+      if (roomRows.length === 0) {
+          return res.status(404).json({ error: "Room not found or does not belong to the specified stall" });
+      }
+
+      const query = `UPDATE rooms SET roomName = ?, size = ?, monthlyRent = ?, eeuReader = ?, status = ? WHERE id = ?`;
+      const values = [roomName, size, monthlyRent, eeuReader, status, roomId];
+
+      await db.query(query, values);
+      return res.status(200).json({ message: "Room updated successfully" });
+  } catch (err) {
+      console.error("Error updating room:", err);
+      return res.status(500).json({ error: "Internal server error" });
+  }
+};

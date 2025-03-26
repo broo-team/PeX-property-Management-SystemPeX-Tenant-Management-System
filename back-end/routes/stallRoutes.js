@@ -27,4 +27,6 @@ router.delete('/:stallId', stallController.deleteStall);
 router.post('/:stallId/rooms', stallController.createRoom);
 router.get('/:stallId/rooms', stallController.getRooms);
 router.get('/getRooms',stallController.getRooms)
+router.put('/rooms/:roomId', stallController.updateRoom);
+router.put('/:stallId/rooms/:roomId', stallController.updateRoom);
 module.exports = router;

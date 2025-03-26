@@ -489,15 +489,42 @@ useEffect(() => {
                 <Form.Item name="tenant_id" label="Tenant ID" rules={[{ required: true, message: "Please enter Tenant ID" }]}>
                   <Input />
                 </Form.Item>
+                <Form.Item name="organazation" label="Organazation">
+                  <Input />
+                </Form.Item>
                 <Form.Item name="full_name" label="Full Nameeeeee" rules={[{ required: true, message: "Please enter Full Name" }]}>
                   <Input />
                 </Form.Item>
                 <Form.Item name="sex" label="Sex" rules={[{ required: true, message: "Please enter Sex" }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item name="phone" label="Phone Number" rules={[{ required: true, message: "Please enter Phone Number" }]}>
-                  <Input />
-                </Form.Item>
+                <Form.Item
+  name="phone"
+  label="Phone Number"
+  rules={[
+    {
+      required: true,
+      message: "Please enter Phone Number",
+    },
+    {
+      validator: (_, value) => {
+        if (!value) {
+          return Promise.resolve(); // Allow empty if not required
+        }
+
+        if (value.startsWith("09") || value.startsWith("07") || value.startsWith("farai")) {
+          return Promise.resolve();
+        }
+
+        return Promise.reject(
+          new Error("Please enter a phone number starting with 09, 07, or farai.")
+        );
+      },
+    },
+  ]}
+>
+  <Input />
+</Form.Item>
                 <Form.Item name="city" label="City" rules={[{ required: true, message: "Please enter Tenant City" }]}>
                   <Input />
                 </Form.Item>
