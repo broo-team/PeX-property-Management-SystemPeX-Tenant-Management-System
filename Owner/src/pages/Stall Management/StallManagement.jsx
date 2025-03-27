@@ -249,24 +249,7 @@ const StallManagement = () => {
     { title: 'Stall Code', dataIndex: 'stallCode', key: 'stallCode' },
     { title: 'Floor Size', dataIndex: 'floorsize', key: 'floorsize' },
     { title: 'Building ID', dataIndex: 'building_id', key: 'building_id' },
-    // {
-    //   title: 'Status',
-    //   key: 'status',
-    //   render: (_, record) => {
-    //     // Find all rooms associated with this stall.
-    //     const associatedRooms = rooms.filter(
-    //       (room) => room.stall_id === record.id
-    //     );
-    //     // If no rooms exist for this stall, assume it's Available.
-    //     if (associatedRooms.length === 0) return 'Available';
-    //     // If any associated room has a status of "taken" (ignoring case), mark the stall as Taken.
-    //     const isTaken = associatedRooms.some(
-    //       (room) =>
-    //         room.status && room.status.toLowerCase() === 'taken'
-    //     );
-    //     return isTaken ? 'Taken' : 'Available';
-    //   },
-    // },
+
     {
       title: 'Actions',
       key: 'actions',
@@ -299,7 +282,7 @@ const StallManagement = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (status ? status : 'Available'),
+      render: (status) => (status ? `Occupied` : 'Available'),
     },
     { title: 'Size', dataIndex: 'size', key: 'size' },
     { title: 'Monthly Rent', dataIndex: 'monthlyRent', key: 'monthlyRent' },
@@ -325,13 +308,16 @@ const StallManagement = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <Button type="default" onClick={() => setIsStallModalVisible(true)}>
-        Create Stall
-      </Button>
+
       <Tabs defaultActiveKey="stalls">
+        
         {/* Stalls Tab */}
         <TabPane tab="Stalls" key="stalls">
-          <Space style={{ marginBottom: 16 }}></Space>
+          <Space style={{ marginBottom: 16 }}>
+          <Button type="default" onClick={() => setIsStallModalVisible(true)}>
+        Create Stall
+      </Button>
+          </Space>
           <Table
             columns={stallColumns}
             dataSource={filteredStalls}
@@ -373,6 +359,7 @@ const StallManagement = () => {
         }}
         footer={null}
       >
+        
         <Form form={stallForm} layout="vertical" onFinish={handleCreateStall}>
           <Form.Item
             name="stallCode"
@@ -396,9 +383,9 @@ const StallManagement = () => {
           >
             <Input disabled />
           </Form.Item>
-          <Button type="primary" htmlType="submit">
+          {/* <Button type="primary" htmlType="submit">
             Create Stall
-          </Button>
+          </Button> */}
         </Form>
       </Modal>
 
