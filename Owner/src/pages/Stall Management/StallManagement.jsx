@@ -287,7 +287,7 @@ const StallManagement = () => {
     { title: 'Size', dataIndex: 'size', key: 'size' },
     { title: 'Monthly Rent', dataIndex: 'monthlyRent', key: 'monthlyRent' },
     { title: 'EEU Reader', dataIndex: 'eeuReader', key: 'eeuReader' },
-    { title: 'Created At', dataIndex: 'created_at', key: 'created_at' },
+    // { title: 'Created At', dataIndex: 'created_at', key: 'created_at' },
     {
       title: 'Actions',
       key: 'actions',

@@ -1,3 +1,4 @@
+
 const db = require('../db/connection');
 
 // 1. Get the current utility rates (latest record)
@@ -227,38 +228,20 @@ exports.approveUtilityPayment = async (req, res) => {
 // 8. Update Overdue Penalties
 // This endpoint applies a one-time 1% penalty on bills that are overdue (i.e. more than 30 days old)
 // and that have not yet had a penalty applied (penalty = 0).
-
-
 exports.updateOverduePenalties = async (req, res) => {
   try {
-    const { penaltyRate } = req.body; // e.g. 0.01 means 1%
-    if (penaltyRate == null) {
-      return res.status(400).json({ error: "penaltyRate is required" });
-    }
-    console.log("Received penaltyRate:", penaltyRate);
-
-    // We'll perform the update in one SQL statement using MySQL's IF() function.
-    // This query does the following:
-    // - For each record that is overdue (created_at <= now()-30 days),
-    //   has utility_status = 'Bill Generated', and penalty not applied,
-    //   it sets penalty = IF(cost * penaltyRate < 1, 1, cost * penaltyRate)
-    //   and cost = cost + [that penalty].
     const updateQuery = `
       UPDATE tenant_utility_usage 
-      SET 
-        penalty = IF(cost * ? < 1, 1, cost * ?),
-        cost = cost + IF(cost * ? < 1, 1, cost * ?)
+      SET penalty = cost * 0.01,
+          cost = cost + (cost * 0.01)
       WHERE utility_status = 'Bill Generated'
         AND created_at <= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        AND (penalty IS NULL OR ABS(penalty) < 0.001)
+        AND penalty = 0
     `;
-    
-    // We need to supply the penaltyRate four times.
-    const [result] = await db.query(updateQuery, [penaltyRate, penaltyRate, penaltyRate, penaltyRate]);
-    console.log("Affected rows:", result.affectedRows);
+    const [result] = await db.query(updateQuery);
     res.status(200).json({
-      message: "Overdue penalties updated successfully.",
-      affectedRecords: result.affectedRows,
+      message: "Overdue penalties updated.",
+      affectedRows: result.affectedRows,
     });
   } catch (error) {
     console.error("Error updating overdue penalties:", error);
