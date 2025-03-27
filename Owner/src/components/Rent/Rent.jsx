@@ -155,7 +155,7 @@ const Rent = () => {
             key: tenant.id.toString(),
             billId: tenantBill.id,
             name: tenant.full_name,
-            room: tenant.room,
+            room: tenant.roomName,
             paymentTerm: termDays,
             term: `${termDays} days`,
             dueDate: dueDateMoment.format(DATE_FORMAT),

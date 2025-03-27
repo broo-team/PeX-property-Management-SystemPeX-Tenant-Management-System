@@ -351,7 +351,7 @@ useEffect(() => {
     // { title: "Sex", dataIndex: "sex", key: "sex" },
 
     { title: "Phone", dataIndex: "phone", key: "phone" },
-    { title: "Room No", dataIndex: "room", key: "rooms" },
+    { title: "Room No", dataIndex: "roomName", key: "rooms" },
     {
       title: "Monthly Rent",
       dataIndex: "monthlyRent", // Use dataIndex now
