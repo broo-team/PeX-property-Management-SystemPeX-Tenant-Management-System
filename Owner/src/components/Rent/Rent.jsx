@@ -37,9 +37,8 @@ const isPaidOrApproved = (status) => {
 /*
   Build Generate Bill Payload
 
-  • If the record already has a due date (from the merged data) we reuse it
-    so that if a bill is generated with remaining days (e.g., bill generated at day 20 of a 30‑day term), 
-    the due date stays the same and the UI shows the correct remaining days.
+  • If the record already has a due date we reuse it,
+    so that if a bill is generated mid‑term the due date remains accurate.
   • For fixed tenants (initialRegistration true), we calculate using the tenant’s original_due_date.
   • Otherwise, for non‑fixed or new tenants we default to now() + paymentTerm days.
 */
@@ -47,18 +46,16 @@ const buildGenerateBillPayload = (record) => {
   const termDays = record.paymentTerm || 30;
   const now = moment();
 
-  // If a dueDate already exists in the record, reuse it:
   if (record.dueDate) {
     return {
       tenant_id: record.key,
-      bill_date: now.format("YYYY-MM-DD"), // the backend expects only the date for bill_date
+      bill_date: now.format("YYYY-MM-DD"),
       due_date: record.dueDate,
       original_due_date: record.dueDate,
       amount: record.rentAmount * (termDays / 30),
     };
   }
 
-  // For fixed tenants.
   if (record.initialRegistration && record.original_due_date) {
     const newDueDate = moment(record.original_due_date, "YYYY-MM-DD")
       .add(termDays, "days")
@@ -75,7 +72,6 @@ const buildGenerateBillPayload = (record) => {
     };
   }
 
-  // Fallback for non‑fixed tenants.
   const newDueDate = now
     .clone()
     .add(termDays, "days")
@@ -92,7 +88,7 @@ const buildGenerateBillPayload = (record) => {
 
 const Rent = () => {
   const [data, setData] = useState([]);
-  const [tick, setTick] = useState(0); // to trigger live re-rendering (for countdowns)
+  const [tick, setTick] = useState(0); // used for live updates (e.g. countdowns)
   const [modalImage, setModalImage] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -117,10 +113,13 @@ const Rent = () => {
       const tenants = tenantRes.data;
       const bills = billRes.data;
 
-      // Only consider active tenants (those not terminated)
-      const activeTenants = tenants.filter(
-        (tenant) => Number(tenant.terminated) === 0
-      );
+      // Process tenants.
+      // NOTE: We include all active tenants but in the UI cell we mark tenants whose lease hasn't started.
+      const activeTenants = tenants.filter((tenant) => {
+        // Check for terminated tenants.
+        const notTerminated = Number(tenant.terminated) === 0;
+        return notTerminated;
+      });
 
       const mergedData = activeTenants.map((tenant) => {
         const termRaw = Number(tenant.payment_term) || 30;
@@ -133,6 +132,8 @@ const Rent = () => {
           termDays = termRaw * 30;
         }
         const monthlyRent = parseFloat(tenant.monthlyRent) || 0;
+        const rentStart = tenant.rent_start_date; // use the API field
+        const rentEnd = tenant.rent_end_date;
 
         // Look for an existing bill for the tenant.
         const tenantBill = bills.find(
@@ -140,9 +141,13 @@ const Rent = () => {
         );
 
         if (tenantBill) {
-          // Parse the stored due_date using DATE_FORMAT.
           const dueDateMoment = moment(tenantBill.due_date, DATE_FORMAT);
-          const daysLeft = dueDateMoment.endOf("day").diff(moment(), "days");
+          // Use the later date between now() and rent_start_date as the reference for calculation.
+          const referenceDate =
+            rentStart && moment(rentStart).isAfter(moment())
+              ? moment(rentStart)
+              : moment();
+          const daysLeft = dueDateMoment.endOf("day").diff(referenceDate, "days");
           const readyForRenewal =
             isPaidOrApproved(tenantBill.payment_status) &&
             daysLeft <= AUTO_RENEW_THRESHOLD;
@@ -153,11 +158,13 @@ const Rent = () => {
             room: tenant.room,
             paymentTerm: termDays,
             term: `${termDays} days`,
-            dueDate: moment(tenantBill.due_date, DATE_FORMAT).format(DATE_FORMAT),
+            dueDate: dueDateMoment.format(DATE_FORMAT),
             billDate: moment(tenantBill.bill_date).format(DATE_FORMAT),
             rentAmount: monthlyRent,
             penalty: parseFloat(tenantBill.penalty) || 0,
-            totalDue: parseFloat(tenantBill.amount) + (parseFloat(tenantBill.penalty) || 0),
+            totalDue:
+              parseFloat(tenantBill.amount) +
+              (parseFloat(tenantBill.penalty) || 0),
             status:
               tenantBill.payment_status.charAt(0).toUpperCase() +
               tenantBill.payment_status.slice(1),
@@ -165,23 +172,30 @@ const Rent = () => {
             approved: isPaidOrApproved(tenantBill.payment_status),
             billGenerated: !readyForRenewal,
             billAutoTriggered: false,
-            nextDueDate: moment(tenantBill.due_date, DATE_FORMAT).format(DATE_FORMAT),
+            nextDueDate: dueDateMoment.format(DATE_FORMAT),
             daysLeft,
-            initialRegistration: Boolean(tenant.rent_end_date),
-            original_due_date: tenant.rent_end_date
-              ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
+            initialRegistration: Boolean(rentEnd),
+            original_due_date: rentEnd
+              ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
               : null,
+            rent_start_date: rentStart,
+            rent_end_date: rentEnd,
           };
         } else {
           // For new tenants.
-          // If tenant.rent_end_date is provided and is in the future, use that; otherwise, use now() + termDays.
+          // Use tenant.rent_end_date if provided and in the future;
+          // otherwise, default to now() + termDays.
           const tenantDueDate =
-            tenant.rent_end_date && moment(tenant.rent_end_date).isAfter(moment())
-              ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
+            rentEnd && moment(rentEnd).isAfter(moment())
+              ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
               : moment().add(termDays, "days").endOf("day").format(DATE_FORMAT);
-          // For new tenants, we force daysLeft to 0 so that the UI shows "Auto Generating..." immediately.
-          const daysLeft = 0;
-          const totalRentDue = monthlyRent * termMonths;
+          // Calculate daysLeft based on lease start if it hasn't begun.
+          const daysLeft =
+            rentStart && moment(rentStart).isAfter(moment())
+              ? moment(tenantDueDate, DATE_FORMAT)
+                  .endOf("day")
+                  .diff(moment(rentStart), "days")
+              : 0;
           return {
             key: tenant.id.toString(),
             billId: null,
@@ -193,7 +207,7 @@ const Rent = () => {
             billDate: tenantDueDate,
             rentAmount: monthlyRent,
             penalty: 0,
-            totalDue: totalRentDue,
+            totalDue: monthlyRent * termMonths,
             status: "pending",
             proof: "",
             approved: false,
@@ -201,10 +215,12 @@ const Rent = () => {
             billAutoTriggered: false,
             nextDueDate: tenantDueDate,
             daysLeft,
-            initialRegistration: Boolean(tenant.rent_end_date),
-            original_due_date: tenant.rent_end_date
-              ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
+            initialRegistration: Boolean(rentEnd),
+            original_due_date: rentEnd
+              ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
               : null,
+            rent_start_date: rentStart,
+            rent_end_date: rentEnd,
           };
         }
       });
@@ -235,6 +251,11 @@ const Rent = () => {
 
   // Generate a new bill.
   const generateBill = useCallback(async (record) => {
+    // Only generate a bill if the lease has started.
+    if (record.rent_start_date && moment(record.rent_start_date).isAfter(moment())) {
+      message.info("Lease has not started. Bill generation is disabled.");
+      return;
+    }
     const payload = buildGenerateBillPayload(record);
     try {
       const response = await axios.post(`${API_BASE}/rent/generate`, payload);
@@ -278,7 +299,12 @@ const Rent = () => {
   // Auto‑generate bills for records in need of renewal.
   const autoGenerateBills = useCallback(() => {
     data.forEach((record) => {
-      if (!record.billGenerated && !record.billAutoTriggered) {
+      // Only auto‑generate if the bill isn’t generated/triggered and the lease has started.
+      if (
+        !record.billGenerated &&
+        !record.billAutoTriggered &&
+        (!record.rent_start_date || moment(record.rent_start_date).isSameOrBefore(moment()))
+      ) {
         setData((prevData) =>
           prevData.map((item) =>
             item.key === record.key ? { ...item, billAutoTriggered: true } : item
@@ -324,7 +350,6 @@ const Rent = () => {
   };
 
   // Approve a payment.
-  // (The backend now handles early payment credit and late penalties, and returns new cycle dates.)
   const handleApprove = useCallback(async (record) => {
     if (!record.billId) {
       message.error("Bill not generated. Cannot approve payment.");
@@ -362,8 +387,11 @@ const Rent = () => {
   }, []);
 
   // Render cell for "Generate Bill".
-  // For new tenants (i.e. when no billId exists), display "Auto Generating..." immediately.
   const renderGenerateBillCell = (record) => {
+    // If the lease hasn't started yet, show a "Lease Not Started" tag.
+    if (record.rent_start_date && moment(record.rent_start_date).isAfter(moment())) {
+      return <Tag color="grey">Lease Not Started</Tag>;
+    }
     if (record.billGenerated) {
       const remainingDays = moment(record.dueDate, DATE_FORMAT)
         .endOf("day")
@@ -374,11 +402,9 @@ const Rent = () => {
         <Tag color="red">Overdue</Tag>
       );
     }
-    // For new tenants or any record with no bill generated yet, if no billId exists, show auto-generating.
     if (!record.billId) {
       return <Tag color="orange">Auto Generating...</Tag>;
     }
-    // For renewal cases where a billId exists but billGenerated is false, use daysLeft check.
     return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
       <Tag color="blue">{record.daysLeft} days left</Tag>
     ) : (
