@@ -54,6 +54,8 @@ import TenantInfo from './components/TenantsInfo/TenantInfo';
 import RentInfo from './components/Rent/RentInfo';
 import TabComponent from './components/tabs/TabComponent';
 import { useAuth } from './context/AuthContext'; // Import useAuth
+import { HiOutlineDocumentReport } from "react-icons/hi";
+import ReportPage from './pages/report/ReportPage';
 
 const { Header, Content, Sider } = Layout;
 
@@ -132,6 +134,14 @@ const App = () => {
                         </Link>
                     ),
                 },
+                {
+                    key: '8',
+                    label: (
+                        <Link to={'/reports'}>
+                            <HiOutlineDocumentReport /> Reminders And Notifications
+                        </Link>
+                    ),
+                }
             ],
         },
         {
@@ -447,6 +457,7 @@ const App = () => {
                                         <Route element={<Termination />} path="/termination" />
                                         <Route path="/tenants/:id" element={<TenantInfo />} />
                                         <Route element={<Utility />} path="/utility/list" />
+                                        <Route element={<ReportPage />} path="/reports" />
                                         <Route path="/rent-info/:billId" element={<RentInfo />} />
                                     </>
                                 ) : null}
