@@ -69,8 +69,8 @@ const App = () => {
     const navigate = useNavigate();
     const location = useLocation();
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
-    const { owner, authLoading, logout } = useAuth(); // Get auth state from context
-
+    const {  accountType, authLoading, logout } = useAuth(); // Get auth state from context
+const owner = accountType === "owner" || accountType === "user"
     if (!owner) {
        navigate("/")
     }

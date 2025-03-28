@@ -6,29 +6,35 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 const Auth = () => {
+
     const [loginPage, setLoginPage] = useState(true);
     const { openNotification } = useContext(AlertContext);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
-    const HandleLogin = async (values) => {
-        setLoading(true);
-        try {
-            const res = await axios.post(`http://localhost:5000/api/buildings/login`, {
-                phone: values.phone,
-                password: values.password,
-            });
-
-            login(res.data.owner, res.data.token);
-            openNotification('Success', 'Login Success', 3, 'green');
-            setLoading(false);
-            navigate('/dashboard');
-        } catch (error) {
-            openNotification('Error', error.response.data.message, 3, 'red');
-            setLoading(false);
-        }
-    };
+     const HandleLogin = async (values) => {
+    setLoading(true);
+    try {
+      // Use the combined endpoint instead of api/buildings/login
+      const res = await axios.post("http://localhost:5000/login", {
+        phone: values.phone,
+        password: values.password,
+      });
+      // Check type and accordingly retrieve the account data
+      if (res.data.type === "owner") {
+        login(res.data.owner, res.data.token, "owner");
+      } else {
+        login(res.data.user, res.data.token, "user");
+      }
+      openNotification("Success", "Login Success", 3, "green");
+      setLoading(false);
+      navigate("/dashboard");
+    } catch (error) {
+      openNotification("Error", error.response.data.message, 3, "red");
+      setLoading(false);
+    }
+  };
 
     const HandelPasswordReset = async (values) => {
         setLoading(true);

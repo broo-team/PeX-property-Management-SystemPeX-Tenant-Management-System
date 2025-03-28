@@ -14,11 +14,14 @@ import {
   message,
 } from 'antd';
 import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
 
 const StallManagement = () => {
+  const { account, accountType, authLoading } = useAuth();
+  const owner = accountType === "owner" ? account : null;
   // Define the building ID for which data should be shown.
   const buildingId = 3;
 
@@ -314,9 +317,12 @@ const StallManagement = () => {
         {/* Stalls Tab */}
         <TabPane tab="Stalls" key="stalls">
           <Space style={{ marginBottom: 16 }}>
-          <Button type="default" onClick={() => setIsStallModalVisible(true)}>
+            {
+              owner ?(<Button type="default" onClick={() => setIsStallModalVisible(true)}>
         Create Stall
-      </Button>
+      </Button>) : <div style={{color:"red"}}>only admin can create stall</div>
+            }
+          
           </Space>
           <Table
             columns={stallColumns}
@@ -329,9 +335,12 @@ const StallManagement = () => {
         {/* Rooms Tab */}
         <TabPane tab="Rooms" key="rooms">
           <Space style={{ marginBottom: 16 }}>
-            <Button type="default" onClick={() => setIsRoomCreateModalVisible(true)}>
+            {owner ? <Button type="default" onClick={() => setIsRoomCreateModalVisible(true)}>
               Create Room
             </Button>
+            : <div style={{color:"red"}}>only can admin create rooms</div>
+            }
+            
             <Input.Search
               placeholder="Search by room name"
               allowClear

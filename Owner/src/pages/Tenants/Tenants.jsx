@@ -5,6 +5,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 const { RangePicker } = DatePicker;
 const { TabPane } = Tabs;
 
@@ -39,6 +40,9 @@ const Tenants = () => {
   const [selectedStall, setSelectedStall] = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [selectedStallId, setSelectedStallId] = useState(null);
+
+  const { account, accountType, authLoading } = useAuth();
+  const owner = accountType === "owner" ? account : null;
 
   const handleContractUpdate = () => {
     const contractStartDate = form.getFieldValue("contractStartDate");
@@ -386,7 +390,7 @@ useEffect(() => {
           <Space size="middle">
              <Button
   type="link"
-  icon={<EditOutlined />}
+  icon={owner ?<EditOutlined /> : `only admin can take action`}
   onClick={(e) => {
     e.stopPropagation();
     console.log("Editing Tenant Record:", record); // Debugging
@@ -428,10 +432,10 @@ useEffect(() => {
 />
               <Button
                   type="link"
-                  icon={<DeleteOutlined />}
+                  icon={owner?<DeleteOutlined />:null}
                   danger
                   onClick={(e) => {
-                      e.stopPropagation(); // Also stop event propagation here
+                      e.stopPropagation(); // Also stop event propagation he
                       handleTerminate(record);
                   }}
               />
@@ -446,9 +450,10 @@ useEffect(() => {
   return (
     <div style={{ padding: "20px" }}>
       <h2>Tenants</h2>
-      <Button type="primary" icon={<PlusOutlined />} onClick={showModal}>
+      {owner ? (<Button type="primary" icon={<PlusOutlined />} onClick={showModal}>
         Add Tenant
-      </Button>
+      </Button>) : <div>tenants only create by admin</div> }
+      
 
       <Table columns={columns} dataSource={tenants} style={{ marginTop: 20 }} rowKey="id" onRow={(record) => ({
           onClick: () => {
