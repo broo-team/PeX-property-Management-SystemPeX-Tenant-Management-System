@@ -1,22 +1,3 @@
-// ======================================================================================================================
-// ReportPage.jsx
-// ======================================================================================================================
-// This file contains a comprehensive Report Page for your project, which includes:  
-//    • A custom header and footer for a professional look  
-//    • Summary Cards that display aggregated figures (total tenants, active vs. terminated tenants, etc.)  
-//    • Detailed tables for Tenant and Room data  
-//    • Multiple charts using Recharts to visualize important metrics  
-//    • A Date Filtering component to allow users to filter data by creation date  
-//    • Detailed logs in a collapsible card for deep-dives into raw JSON data  
-//
-// The data is fetched from the following endpoints:
-//    - http://localhost:5000/api/tenants
-//    - http://localhost:5000/stalls/getRooms
-//
-// Each section is built with attention to accessibility, responsiveness, and scalability.
-// Feel free to extend or modify the code for even more detailed reporting such as exporting data, adding
-// real-time updates, or integrating further analytics.
-// ======================================================================================================================
 
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Card, Row, Col, Table, Spin, Divider, Tag, DatePicker, Button } from 'antd';
@@ -648,19 +629,5 @@ function ReportPage() {
   );
 }
 
-// ======================================================================================================================
-// Additional Utility Components and Future Extensions
-// ======================================================================================================================
-//
-// Below you can attach additional utility functions or components such as:
-//    • Export to CSV/PDF functionality
-//    • Custom modals with detailed error logs or tenant/room history
-//    • Real-time updates using WebSockets or polling
-//    • Enhanced filtering (for example, filter by city, room status, etc.)
-//
-// Feel free to extend the code base further as project requirements evolve.
-//
-// ======================================================================================================================
 
-// Export the ReportPage as the default export so it can be used in your project.
 export default ReportPage;
