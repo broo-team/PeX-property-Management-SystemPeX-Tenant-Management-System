@@ -8,6 +8,11 @@ const stallRoutes = require('./routes/stallRoutes');
 const tenantRoutes = require('./routes/tenantRoutes');
 const utilityRoutes = require("./routes/utilityRoutes")
 const RentRoute = require("./routes/rentRoutes");
+const usersRouter = require("./routes/users")
+const login = require("./routes/loginRoute")
+
+
+
 
 const cors = require("cors")
 const PORT = process.env.PORT || 5000;
@@ -21,6 +26,8 @@ app.use('/api/tenants', tenantRoutes);
 app.use('/stalls', stallRoutes);
 app.use('/api/utilities', utilityRoutes);
 app.use(`/api/rent`,RentRoute)
+app.use("/api/users", usersRouter);
+app.use(login)
 // A simple test route
 app.get('/', (req, res) => {
   res.send('Welcome to the Tenant Management API');
