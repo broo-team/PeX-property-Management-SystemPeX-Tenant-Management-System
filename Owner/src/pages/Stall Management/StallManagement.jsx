@@ -254,9 +254,13 @@ const StallManagement = () => {
     { title: 'Building ID', dataIndex: 'building_id', key: 'building_id' },
 
     {
-      title: 'Actions',
+      title: owner ? 'Actions' :null,
       key: 'actions',
-      render: (_, record) => (
+      render: (_, record) => {
+        if(!owner){
+          return null;
+        }
+        return(
         <Space size="middle">
           <Button type="link" onClick={() => openStallEditModal(record)}>
             Edit
@@ -265,7 +269,8 @@ const StallManagement = () => {
             Delete
           </Button>
         </Space>
-      ),
+        )
+      },
     },
   ];
 
@@ -292,9 +297,13 @@ const StallManagement = () => {
     { title: 'EEU Reader', dataIndex: 'eeuReader', key: 'eeuReader' },
     // { title: 'Created At', dataIndex: 'created_at', key: 'created_at' },
     {
-      title: 'Actions',
+      title: owner ? 'Actions' : null,
       key: 'actions',
-      render: (_, record) => (
+      render: (_, record) => {
+        if (!owner) {
+          return null;
+        }
+        return(
         <Space size="middle">
           <Button type="link" onClick={() => openRoomEditModal(record)}>
             Edit
@@ -303,7 +312,8 @@ const StallManagement = () => {
             Delete
           </Button>
         </Space>
-      ),
+        )
+      },
     },
   ];
 
@@ -318,9 +328,9 @@ const StallManagement = () => {
         <TabPane tab="Stalls" key="stalls">
           <Space style={{ marginBottom: 16 }}>
             {
-              owner ?(<Button type="default" onClick={() => setIsStallModalVisible(true)}>
+              owner ? (<Button type="default" onClick={() => setIsStallModalVisible(true)}>
         Create Stall
-      </Button>) : <div style={{color:"red"}}>only admin can create stall</div>
+      </Button>) : null
             }
           
           </Space>
@@ -335,11 +345,11 @@ const StallManagement = () => {
         {/* Rooms Tab */}
         <TabPane tab="Rooms" key="rooms">
           <Space style={{ marginBottom: 16 }}>
-            {owner ? <Button type="default" onClick={() => setIsRoomCreateModalVisible(true)}>
+            {owner ? ( <Button type="default" onClick={() => setIsRoomCreateModalVisible(true)}>
               Create Room
-            </Button>
-            : <div style={{color:"red"}}>only can admin create rooms</div>
-            }
+            </Button>): null}
+         
+            
             
             <Input.Search
               placeholder="Search by room name"

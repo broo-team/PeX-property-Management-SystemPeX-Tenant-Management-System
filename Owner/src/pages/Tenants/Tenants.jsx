@@ -384,9 +384,13 @@ useEffect(() => {
       render: (flag) => (flag ? "Yes" : "No")
     },
     {
-      title: "Actions",
+      title: owner ? "Actions":null,
       key: "actions",
-      render: (_, record) => (
+      render: (_, record) => {
+        if (!owner) {
+          return null;
+        }
+        return(
           <Space size="middle">
              <Button
   type="link"
@@ -432,7 +436,7 @@ useEffect(() => {
 />
               <Button
                   type="link"
-                  icon={owner?<DeleteOutlined />:null}
+                  icon={<DeleteOutlined />}
                   danger
                   onClick={(e) => {
                       e.stopPropagation(); // Also stop event propagation he
@@ -440,7 +444,8 @@ useEffect(() => {
                   }}
               />
           </Space>
-      )
+        )
+      }
   }
     
   ];
@@ -452,7 +457,7 @@ useEffect(() => {
       <h2>Tenants</h2>
       {owner ? (<Button type="primary" icon={<PlusOutlined />} onClick={showModal}>
         Add Tenant
-      </Button>) : <div>tenants only create by admin</div> }
+      </Button>) : null }
       
 
       <Table columns={columns} dataSource={tenants} style={{ marginTop: 20 }} rowKey="id" onRow={(record) => ({

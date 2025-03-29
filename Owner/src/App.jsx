@@ -69,9 +69,10 @@ const App = () => {
     const navigate = useNavigate();
     const location = useLocation();
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
-    const {  accountType, authLoading, logout } = useAuth(); // Get auth state from context
-const owner = accountType === "owner" || accountType === "user"
-    if (!owner) {
+    const { account, accountType, authLoading,logout } = useAuth();
+      const owner = accountType === "owner" ? account : null;
+      const user = accountType === "user" ? account : null
+    if (owner || !user) {
        navigate("/")
     }
 
@@ -144,11 +145,15 @@ const owner = accountType === "owner" || accountType === "user"
                 }
             ],
         },
-        {
-            key: '/users',
-            label: <Link to={'/users/list'}>Users</Link>,
-            icon: <FaUserShield size={20} />,
-        },
+        (owner
+            ? [
+                {
+                  key: '/users',
+                  label: <Link to="/users/list">Users</Link>,
+                  icon: <FaUserShield size={20} />,
+                },
+              ]
+            : []),
     ];
 
     const getLevelKeys = (items1) => {
@@ -432,7 +437,7 @@ const owner = accountType === "owner" || accountType === "user"
                         >
                             <Routes>
                                 <Route element={<Auth />} path="/" />
-                                {owner ? (
+                                {owner || user ? (
                                     <>
                                         <Route element={<Dashboard />} path="/dashboard" />
                                         <Route element={<Users />} path="/users/list" />
