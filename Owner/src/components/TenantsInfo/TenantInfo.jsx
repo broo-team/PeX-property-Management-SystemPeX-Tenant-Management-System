@@ -1,4 +1,3 @@
-// TenantInfo.js
 import React, { useState, useEffect } from 'react';
 import { Card, Descriptions, message, Spin, Row, Col, Typography, Tag } from 'antd';
 import dayjs from 'dayjs';
@@ -16,24 +15,22 @@ import {
   EnvironmentOutlined,
   UsergroupAddOutlined,
   ThunderboltOutlined,
-  // DropletOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 function TenantInfo() {
   const { id } = useParams();
   const [tenant, setTenant] = useState(null);
   const [building, setBuilding] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const buildingId = 3;
   useEffect(() => {
     const fetchTenant = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/api/tenants/${id}`);
         setTenant(response.data);
-
         if (response.data.building_id) {
           fetchBuilding(response.data.building_id);
         }
@@ -48,9 +45,9 @@ function TenantInfo() {
     fetchTenant();
   }, [id]);
 
-  const fetchBuilding = async (buildingId) => {
+  const fetchBuilding = async (building_id) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/buildings/${buildingId}`);
+      const response = await axios.get(`http://localhost:5000/api/buildings/${building_id}`);
       setBuilding(response.data);
     } catch (error) {
       message.error("Failed to fetch building details");
@@ -74,87 +71,194 @@ function TenantInfo() {
   };
 
   return (
-    <div style={{ padding: "30px", backgroundColor: '#f0f2f5' }}>
-      <Title level={2} style={{ marginBottom: "20px", color: '#1890ff' }}>Tenant Details: {tenant.full_name}</Title>
+    <div style={{ padding: "30px", backgroundColor: '#f7f7f7' }}>
+      <Title level={2} style={{ marginBottom: "20px", color: '#1890ff' }}>
+        Tenant Details: {tenant.full_name}
+      </Title>
       <Row gutter={[24, 24]}>
+        {/* Personal Information */}
         <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-          <Card title="Personal Information" bordered={false} style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}>
+          <Card
+            title="Personal Information"
+            bordered={false}
+            style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}
+          >
             <Descriptions bordered={false} size="middle" column={1}>
-              <Descriptions.Item label="Tenant ID" icon={<IdcardOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.tenant_id}</strong></Descriptions.Item>
-              <Descriptions.Item label="Full Name" icon={<UserOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.full_name}</strong></Descriptions.Item>
-              <Descriptions.Item label="Sex" icon={<UserOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.sex}</strong></Descriptions.Item>
-              <Descriptions.Item label="Phone" icon={<PhoneOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.phone}</strong></Descriptions.Item>
-              <Descriptions.Item label="City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.city}</strong></Descriptions.Item>
-              <Descriptions.Item label="Sub City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.subcity}</strong></Descriptions.Item>
-              <Descriptions.Item label="Woreda" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.woreda}</strong></Descriptions.Item>
-              <Descriptions.Item label="House No" icon={<HomeOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.house_no}</strong></Descriptions.Item>
-              <Descriptions.Item label="Building" icon={<HomeOutlined style={{ color: '#1890ff' }} />}><strong>{building ? `${building.building_name} (ID: ${tenant.building_id})` : tenant.building_id}</strong></Descriptions.Item>
+              <Descriptions.Item label="Tenant ID" icon={<IdcardOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.tenant_id}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Full Name" icon={<UserOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.full_name}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Sex" icon={<UserOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.sex}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Phone" icon={<PhoneOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.phone}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.city}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Sub City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.subcity}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Woreda" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.woreda}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="House No" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.house_no}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Building" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{building ? `${building.building_name} (ID: ${tenant.building_id})` : tenant.building_id}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Room Name" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.roomName || "N/A"}</Text>
+              </Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
 
+        {/* Lease & Payment Information */}
         <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-          <Card title="Lease & Payment Information" bordered={false} style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}>
+          <Card
+            title="Lease & Payment Information"
+            bordered={false}
+            style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}
+          >
             <Descriptions bordered={false} size="middle" column={1}>
-              <Descriptions.Item label="Room" icon={<HomeOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.room}</strong></Descriptions.Item>
-              {/* <Descriptions.Item label="Price" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.price ? tenant.price : "Not set"}</strong></Descriptions.Item>
-               <Descriptions.Item label="Monthly Rent" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.price ? tenant.price : "Not set"}</strong></Descriptions.Item> */}
-              <Descriptions.Item label="Payment Term" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.payment_term}</strong></Descriptions.Item>
-               <Descriptions.Item label="Monthly Rent" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.price ? tenant.price : "Not set"}</strong></Descriptions.Item>
-              <Descriptions.Item label="Deposit" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.deposit}</strong></Descriptions.Item>
-              <Descriptions.Item label="Lease Start" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.lease_start ? dayjs(tenant.lease_start).format("YYYY-MM-DD") : "N/A"}</strong></Descriptions.Item>
-              <Descriptions.Item label="Lease End" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.lease_end ? dayjs(tenant.lease_end).format("YYYY-MM-DD") : "N/A"}</strong></Descriptions.Item>
-              <Descriptions.Item label="Rent Start Date" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.lease_start ? dayjs(tenant.lease_start).format("YYYY-MM-DD") : "N/A"}</strong></Descriptions.Item>
-              <Descriptions.Item label="Rent End Date" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.lease_end ? dayjs(tenant.lease_end).format("YYYY-MM-DD") : "N/A"}</strong></Descriptions.Item>
-              <Descriptions.Item label="Created At" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.created_at ? dayjs(tenant.created_at).format("YYYY-MM-DD HH:mm:ss") : "N/A"}</strong></Descriptions.Item>
-            
+              <Descriptions.Item label="Room" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.room}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Monthly Rent" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.monthlyRent || "Not set"}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Payment Term" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.payment_term}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Deposit" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.deposit}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Lease Start" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.lease_start ? dayjs(tenant.lease_start).format("YYYY-MM-DD") : "N/A"}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Lease End" icon={<CalendarOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.lease_end ? dayjs(tenant.lease_end).format("YYYY-MM-DD") : "N/A"}</Text>
+              </Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
 
+        {/* Utility Information */}
         <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-          <Card title="Utility Info" bordered={false} style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}>
+          <Card
+            title="Utility Info"
+            bordered={false}
+            style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}
+          >
             <Descriptions bordered={false} size="middle" column={1}>
-            <Descriptions.Item label="EEU Payment" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
+              <Descriptions.Item label="EEU Payment" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
                 {renderPaymentStatus(tenant.eeu_payment)}
+              </Descriptions.Item>
+              <Descriptions.Item label="EEU Last Reading" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.last_eeu_reading || "0.00"}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Generator Payment" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
                 {renderPaymentStatus(tenant.generator_payment)}
               </Descriptions.Item>
-              <Descriptions.Item label="Water Payment" icon={`drop`}>
+              <Descriptions.Item label="Generator Last Reading" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.last_generator_reading || "0.00"}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Water Payment" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}>
                 {renderPaymentStatus(tenant.water_payment)}
               </Descriptions.Item>
-              {/* <Descriptions.Item label="Terminated" icon={<ExclamationCircleOutlined style={{ color: '#1890ff' }} />}>
-                {tenant.terminated ? (
-                  <Tag icon={<CheckCircleOutlined />} color="success">
-                    Yes
-                  </Tag>
-                ) : (
-                  <Tag icon={<CloseCircleOutlined />} color="default">
-                    No
-                  </Tag>
-                )}
-              </Descriptions.Item> */}
+              <Descriptions.Item label="Water Last Reading" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}>
+                <Text strong>{tenant.last_water_reading || "0.00"}</Text>
+              </Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
 
+        {/* Agent Information */}
         <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-        {tenant.registered_by_agent ? ( // If true, render agent card
-  <Card title="Agent" bordered={false} style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}>
-    <Descriptions bordered={false} size="middle" column={1}>
-      <Descriptions.Item label="Registered by Agent" icon={<UsergroupAddOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.registered_by_agent ? "Yes" : "No"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Authentication No" icon={<IdcardOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.authentication_no || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent First Name" icon={<UserOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_first_name || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent Sex" icon={<UserOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_sex || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent Phone" icon={<PhoneOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_phone || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_city || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent Sub City" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_subcity || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent Woreda" icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_woreda || "N/A"}</strong></Descriptions.Item>
-      <Descriptions.Item label="Agent House No" icon={<HomeOutlined style={{ color: '#1890ff' }} />}><strong>{tenant.agent_house_no || "N/A"}</strong></Descriptions.Item>
-    </Descriptions>
-  </Card>
-) : null}
+          {tenant.registered_by_agent ? (
+            <Card
+              title="Agent Information"
+              bordered={false}
+              style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}
+            >
+              <Descriptions bordered={false} size="middle" column={1}>
+                <Descriptions.Item
+                  label="Registered by Agent"
+                  icon={<UsergroupAddOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>Yes</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Authentication No"
+                  icon={<IdcardOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.authentication_no || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent First Name"
+                  icon={<UserOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_first_name || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent Sex"
+                  icon={<UserOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_sex || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent Phone"
+                  icon={<PhoneOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_phone || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent City"
+                  icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_city || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent Sub City"
+                  icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_subcity || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent Woreda"
+                  icon={<EnvironmentOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_woreda || "N/A"}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label="Agent House No"
+                  icon={<HomeOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>{tenant.agent_house_no || "N/A"}</Text>
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          ) : (
+            <Card
+              title="Agent Information"
+              bordered={false}
+              style={{ boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', backgroundColor: 'white' }}
+            >
+              <Descriptions bordered={false} size="middle" column={1}>
+                <Descriptions.Item
+                  label="Registered by Agent"
+                  icon={<UsergroupAddOutlined style={{ color: '#1890ff' }} />}
+                >
+                  <Text strong>No agent registered</Text>
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          )}
         </Col>
       </Row>
     </div>
