@@ -12,7 +12,6 @@ import {
     Breadcrumb,
     Button,
     Menu,
-    Tooltip,
     Dropdown,
     Badge,
     Tabs,
@@ -295,32 +294,6 @@ const App = () => {
         },
     ];
     const [visible, setVisible] = useState(false);
-
-    // const checkAuth = async () => {
-    //     setAuthLoading(true);
-    //     const storedOwner = localStorage.getItem('owner');
-    //     if (storedOwner) {
-    //         try {
-    //             setOwner(JSON.parse(storedOwner));
-    //             setAuthLoading(false);
-    //         } catch (error) {
-    //             localStorage.removeItem('owner');
-    //             setOwner(null);
-    //             setAuthLoading(false);
-    //             navigate('/');
-    //         }
-    //     } else {
-    //         setOwner(null);
-    //         setAuthLoading(false);
-    //         if (location.pathname !== '/') {
-    //             navigate('/');
-    //         }
-    //     }
-    // };
-
-    // useEffect(() => {
-    //     checkAuth();
-    // }, [location, navigate]); // Check auth on location change
     useEffect(() => {
         if (!authLoading && !owner && !user) {
           navigate("/");

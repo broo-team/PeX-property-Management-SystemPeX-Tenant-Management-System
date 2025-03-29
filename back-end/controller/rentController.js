@@ -18,6 +18,7 @@ exports.getBills = async (req, res) => {
 };
 
 // Generate a new rent bill.
+// Generate a new rent bill.
 exports.generateBill = async (req, res) => {
   try {
     // Destructure required fields.
@@ -26,15 +27,18 @@ exports.generateBill = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // Retrieve tenant info.
+    // Retrieve tenant info including the building_id.
     const [tenantRows] = await db.query(
-      `SELECT payment_term, rent_end_date FROM tenants WHERE id = ?`,
+      `SELECT payment_term, rent_end_date, building_id FROM tenants WHERE id = ?`,
       [tenant_id]
     );
     if (tenantRows.length === 0) {
       return res.status(404).json({ message: "Tenant not found." });
     }
+    
+    // Extract payment term and building_id.
     const tenantPaymentTerm = Number(tenantRows[0].payment_term) || 30;
+    const buildingId = tenantRows[0].building_id;
 
     // If due_date is not provided, compute it as bill_date + tenantPaymentTerm days,
     // and set it to the very end of that day.
@@ -51,12 +55,13 @@ exports.generateBill = async (req, res) => {
     const penalty = 0;
     const payment_status = "pending";
 
-    // Insert the new bill, storing both due_date and original_due_date.
+    // Insert the new bill including the building_id.
     const [result] = await db.query(
       `INSERT INTO monthly_rent_bills
-         (tenant_id, bill_date, amount, penalty, payment_status, payment_term, due_date, original_due_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (building_id, tenant_id, bill_date, amount, penalty, payment_status, payment_term, due_date, original_due_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        buildingId,
         tenant_id,
         bill_date,
         amount,

@@ -240,6 +240,7 @@ exports.deleteStall = async (req, res) => {
 /* --- ROOM CONTROLLER FUNCTIONS (using the separate 'rooms' table) --- */
 
 // Create a new room for a stall
+// Create a new room for a stall
 exports.createRoom = async (req, res) => {
   const stallId = req.params.stallId;
   const { roomName, size, monthlyRent, eeuReader } = req.body;
@@ -250,10 +251,14 @@ exports.createRoom = async (req, res) => {
     if (stallRows.length === 0) {
       return res.status(404).json({ error: "Stall not found" });
     }
-
-    // Insert a new room entry linked to the stall.
-    const query = "INSERT INTO rooms (stall_id, roomName, size, monthlyRent, eeuReader) VALUES (?, ?, ?, ?, ?)";
-    const [result] = await db.query(query, [stallId, roomName, size, monthlyRent, eeuReader]);
+    
+    // Extract building_id from the stall record.
+    const buildingId = stallRows[0].building_id;
+    
+    // Insert a new room entry linked to both the stall and building.
+    const query = `INSERT INTO rooms (building_id, stall_id, roomName, size, monthlyRent, eeuReader) 
+                   VALUES (?, ?, ?, ?, ?, ?)`;
+    const [result] = await db.query(query, [buildingId, stallId, roomName, size, monthlyRent, eeuReader]);
     return res.status(201).json({ message: "Room created successfully", roomId: result.insertId });
   } catch (err) {
     console.error("Error creating room:", err);

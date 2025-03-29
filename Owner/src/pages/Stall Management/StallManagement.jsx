@@ -402,9 +402,9 @@ const StallManagement = () => {
           >
             <Input disabled />
           </Form.Item>
-          {/* <Button type="primary" htmlType="submit">
+          <Button type="primary" htmlType="submit">
             Create Stall
-          </Button> */}
+          </Button>
         </Form>
       </Modal>
 
