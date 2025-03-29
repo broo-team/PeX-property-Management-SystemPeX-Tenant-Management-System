@@ -69,12 +69,12 @@ const App = () => {
     const navigate = useNavigate();
     const location = useLocation();
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
-    const { account, accountType, authLoading,logout } = useAuth();
+    const { role, account, accountType, authLoading,logout } = useAuth();
       const owner = accountType === "owner" ? account : null;
       const user = accountType === "user" ? account : null
-    if (owner || !user) {
-       navigate("/")
-    }
+      if (!owner && !user) {
+        navigate("/");
+      }
 
     const items = [
         {
@@ -84,71 +84,87 @@ const App = () => {
         },
         {
             key: '2',
-            label: 'Owner Dashboard',
+            label:  role === "maintenance"
+            ? "Maintenance Dashboard"
+            : role === "finance"
+            ? "Finance Dashboard"
+            : "Owner Dashboard",
             icon: <MdAdminPanelSettings size={20} />,
-            children: [
-                {
-                    key: '1',
-                    label: (
-                        <Link to={'/tenants'}>
-                            <FaPeopleRoof /> Tenants
-                        </Link>
-                    ),
-                },
-                {
-                    key: '3',
-                    label: (
-                        <Link to={'/stall-management'}>
-                            <RiHomeOfficeLine /> Stall Management
-                        </Link>
-                    ),
-                },
-                {
-                    key: '4',
-                    label: (
-                        <Link to={'/lease-agreements'}>
-                            <FaRegNewspaper /> Lease Agreements
-                        </Link>
-                    ),
-                },
-                {
-                    key: '5',
-                    label: (
-                        <Link to={'/payments'}>
-                            <TbZoomMoney /> Payments
-                        </Link>
-                    ),
-                },
-                {
-                    key: '6',
-                    label: (
+            children:
+              role === "maintenance"
+                ? [
+                    {
+                      key: '6',
+                      label: (
                         <Link to={'/maintenance-requests'}>
-                            <GrHostMaintenance /> Maintenance Requests
+                          <GrHostMaintenance /> Maintenance Requests
                         </Link>
-                    ),
-                },
-                {
-                    key: '7',
-                    label: (
+                      ),
+                    },
+                  ]
+                : [
+                    {
+                      key: '1',
+                      label: (
+                        <Link to={'/tenants'}>
+                          <FaPeopleRoof /> Tenants
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: '3',
+                      label: (
+                        <Link to={'/stall-management'}>
+                          <RiHomeOfficeLine /> Stall Management
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: '4',
+                      label: (
+                        <Link to={'/lease-agreements'}>
+                          <FaRegNewspaper /> Lease Agreements
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: '5',
+                      label: (
+                        <Link to={'/payments'}>
+                          <TbZoomMoney /> Payments
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: '6',
+                      label: (
+                        <Link to={'/maintenance-requests'}>
+                          <GrHostMaintenance /> Maintenance Requests
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: '7',
+                      label: (
                         <Link to={'/reminders-notifications'}>
-                            <IoNotifications /> Reminders And Notifications
+                          <IoNotifications /> Reminders And Notifications
                         </Link>
-                    ),
-                },
-                {
-                    key: '8',
-                    label: (
+                      ),
+                    },
+                    {
+                      key: '8',
+                      label: (
                         <Link to={'/reports'}>
-                            <HiOutlineDocumentReport /> Reminders And Notifications
+                          <HiOutlineDocumentReport /> Reports
                         </Link>
-                    ),
-                }
-            ],
-        },
-        (owner
+                      ),
+                    },
+                  ],
+          },          
+        ...(owner
             ? [
                 {
-                  key: '/users',
+                  key: "/users",
                   label: <Link to="/users/list">Users</Link>,
                   icon: <FaUserShield size={20} />,
                 },
@@ -305,7 +321,11 @@ const App = () => {
     // useEffect(() => {
     //     checkAuth();
     // }, [location, navigate]); // Check auth on location change
-
+    useEffect(() => {
+        if (!authLoading && !owner && !user) {
+          navigate("/");
+        }
+      }, [authLoading, owner, user, navigate]);
     if (authLoading) {
         return <div>Loading...</div>;
     }
@@ -352,11 +372,14 @@ const App = () => {
                     />
                     <div style={{ height: '80px' }}></div>
                     <div style={{ marginTop: 'auto' }}>
-                        <Menu>
-                            <Menu.Item key="/utility" icon={<LuUtilityPole size={20} />}>
-                                <Link to="/utility/list">Utility</Link>
-                            </Menu.Item>
-                        </Menu>
+                        {
+                            role === "finance" ? 
+                            (<Menu>
+                                <Menu.Item key="/utility" icon={<LuUtilityPole size={20} />}>
+                                    <Link to="/utility/list">Utility</Link>
+                                </Menu.Item>
+                            </Menu>)
+                        :null}
                     </div>
                 </Sider>
                 <Layout>

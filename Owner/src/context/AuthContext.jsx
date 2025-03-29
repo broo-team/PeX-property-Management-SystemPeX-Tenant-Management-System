@@ -62,9 +62,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("ERPUSER_Token");
     navigate("/");
   };
-
+  const role = accountType === "user" ? account?.role : accountType;
   return (
-    <AuthContext.Provider value={{ account, accountType, token, authLoading, login, logout }}>
+    <AuthContext.Provider value={{ account, accountType, role, token, authLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
