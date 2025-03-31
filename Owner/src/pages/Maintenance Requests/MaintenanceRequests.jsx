@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+// https://copilot.microsoft.com/chats/FPJnhstvi6BvJowFRGhsp
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   Button,
@@ -13,329 +14,442 @@ import {
   InputNumber,
 } from 'antd';
 import dayjs from 'dayjs';
+import axios from 'axios';
+import { useAuth } from '../../context/AuthContext'; // Adjust the path as needed
 
 const { Option } = Select;
 
 const MaintenanceRequests = () => {
+  // Get the current role (expected: "owner", "finance", "maintenance")
+  const { role } = useAuth();
+
   const [form] = Form.useForm();
-  // List of maintenance requests
   const [requests, setRequests] = useState([]);
-  // For add/edit modal (tenant submission)
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
-
-  // For filtering the list
   const [filters, setFilters] = useState({
     tenantName: '',
     status: '',
-    requestDate: null,
+    createdAt: null,
   });
-
-  // Reusable Action Modal for various role actions (finance, owner, maintenance)
-  // actionModal has type (defines what the modal does) and requestKey to identify the request.
-  // actionInput holds either the price (number), scheduled date (date object), or reason (string) as needed.
   const [actionModal, setActionModal] = useState({
     visible: false,
-    type: "", // one of: financeConfirm, ownerApprove, ownerPending, ownerReject, maintenanceSchedule
-    requestKey: null,
+    type: '',
+    requestId: null,
   });
   const [actionInput, setActionInput] = useState(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailRequest, setDetailRequest] = useState(null);
 
-  // Compute filtered results based on filters
-  const filteredRequests = useMemo(() => {
-    return requests.filter((request) => {
-      const tenantMatch = filters.tenantName
-        ? request.tenantName.toLowerCase().includes(filters.tenantName.toLowerCase())
-        : true;
-      const statusMatch = filters.status ? request.status === filters.status : true;
-      const dateMatch = filters.requestDate
-        ? dayjs(request.requestDate).isSame(filters.requestDate, 'day')
-        : true;
-      return tenantMatch && statusMatch && dateMatch;
-    });
-  }, [requests, filters]);
+  // Fetch maintenance requests from the backend.
+  const fetchRequests = async () => {
+    try {
+      const url = 'http://localhost:5000/api/maintenance';
+      const params = {};
+      if (filters.tenantName) {
+        params.tenantName = filters.tenantName;
+      }
+      if (filters.status) {
+        params.status = filters.status;
+      }
+      if (filters.createdAt) {
+        params.createdAt = dayjs(filters.createdAt).format('YYYY-MM-DD');
+      }
+      const response = await axios.get(url, { params });
+      setRequests(response.data);
+    } catch (error) {
+      message.error('Failed to fetch maintenance requests');
+    }
+  };
 
-  // Table columns with dynamic actions based on request status.
-  const columns = [
+  useEffect(() => {
+    fetchRequests();
+  }, [filters]);
+
+  // Update visibleRequests so that all roles see "Resolved" status as well.
+  const visibleRequests = useMemo(() => {
+    if (role === 'finance') {
+      // Finance sees Submitted, Owner Pending, Finance Confirmed, Maintenance Scheduled, and Resolved requests.
+      return requests.filter(r =>
+        ['Submitted', 'Owner Pending', 'Finance Confirmed', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
+      );
+    } else if (role === 'owner') {
+      // Owner sees Finance Confirmed, Owner Pending, Owner Approved, Owner Rejected, Maintenance Scheduled, and Resolved.
+      return requests.filter(r =>
+        ['Finance Confirmed', 'Owner Pending', 'Owner Approved', 'Owner Rejected', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
+      );
+    } else if (role === 'maintenance') {
+      // Maintenance sees Owner Approved, Maintenance Scheduled, and Resolved.
+      return requests.filter(r =>
+        ['Owner Approved', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
+      );
+    }
+    return requests;
+  }, [requests, role]);
+
+  // Build baseColumns – these columns are always shown.
+  const baseColumns = [
     {
-      title: 'Tenant Name',
-      dataIndex: 'tenantName',
-      key: 'tenantName',
+      title: 'Tenant ID',
+      dataIndex: 'tenant_id',
+      key: 'tenant_id',
+      ellipsis: true,
+      width: 100,
     },
     {
       title: 'Stall Code',
       dataIndex: 'stallCode',
       key: 'stallCode',
+      ellipsis: true,
+      width: 100,
     },
     {
-      title: 'Issue Description',
-      dataIndex: 'issueDescription',
-      key: 'issueDescription',
+      title: 'Building ID',
+      dataIndex: 'building_id',
+      key: 'building_id',
+      ellipsis: true,
+      width: 100,
     },
     {
-      title: 'Request Date',
-      dataIndex: 'requestDate',
-      key: 'requestDate',
-      render: (_, record) => dayjs(record.requestDate).format('YYYY-MM-DD'),
+      title: 'Room Name',
+      dataIndex: 'roomName', // Ensure your API returns roomName joined from tenants.
+      key: 'roomName',
+      ellipsis: true,
+      width: 120,
     },
     {
-      title: 'Price',
-      dataIndex: 'price',
-      key: 'price',
-      render: (price) => (price ? `$${price}` : '-'),
+      title: 'Created At',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      ellipsis: true,
+      width: 120,
+      render: (text) => dayjs(text).format('YYYY-MM-DD'),
     },
     {
       title: 'Scheduled Date',
       dataIndex: 'scheduledDate',
       key: 'scheduledDate',
+      ellipsis: true,
+      width: 120,
       render: (date) => (date ? dayjs(date).format('YYYY-MM-DD') : '-'),
     },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status, record) => {
-        let color = 'default';
-        switch (status) {
-          case 'Submitted':
-            color = 'gray';
-            break;
-          case 'Finance Confirmed':
-            color = 'orange';
-            break;
-          case 'Owner Approved':
-            color = 'blue';
-            break;
-          case 'Owner Pending':
-            color = 'gold';
-            break;
-          case 'Owner Rejected':
-            color = 'red';
-            break;
-          case 'Maintenance Scheduled':
-            color = 'purple';
-            break;
-          case 'Resolved':
-            color = 'green';
-            break;
-          default:
-            break;
-        }
-        return (
-          <Tag color={color}>
+  ];
+
+  // Price column shown only for roles other than maintenance.
+  if (role !== 'maintenance') {
+    baseColumns.push({
+      title: 'Price',
+      dataIndex: 'price',
+      key: 'price',
+      ellipsis: true,
+      width: 80,
+      render: (price) => (price ? `$${price}` : '-'),
+    });
+  }
+
+  // Status column: displays current status and if pending or rejected, the reason.
+  baseColumns.push({
+    title: 'Status',
+    dataIndex: 'status',
+    key: 'status',
+    ellipsis: true,
+    width: 150,
+    render: (status, record) => {
+      let color = 'default';
+      switch (status) {
+        case 'Submitted':         color = 'gray'; break;
+        case 'Finance Confirmed':   color = 'orange'; break;
+        case 'Owner Approved':      color = 'blue'; break;
+        case 'Owner Pending':       color = 'gold'; break;
+        case 'Owner Rejected':      color = 'red'; break;
+        case 'Maintenance Scheduled': color = 'purple'; break;
+        case 'Resolved':            color = 'green'; break;
+        default: break;
+      }
+      return (
+        <div>
+          <Tag color={color} style={{ marginBottom: 2 }}>
             {status}
-            {record.scheduledDate ? ` (Scheduled: ${dayjs(record.scheduledDate).format('YYYY-MM-DD')})` : ''}
           </Tag>
-        );
-      },
+          {(['Owner Pending', 'Owner Rejected'].includes(status) && record.reason) && (
+            <div style={{ fontSize: '12px', color: '#555' }}>
+              Reason: {record.reason}
+            </div>
+          )}
+        </div>
+      );
     },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => {
-        const actions = [];
-        // Based on the current status, show the appropriate action buttons.
-        if (record.status === 'Submitted') {
-          // Finance needs to confirm this submission with a price.
+  });
+
+  // Actions column: role-specific actions and a "View Details" button.
+  baseColumns.push({
+    title: 'Actions',
+    key: 'actions',
+    width: 300,
+    render: (_, record) => {
+      const actions = [];
+      actions.push(
+        <Button
+          type="link"
+          key="view-details"
+          onClick={() => openDetailModal(record)}
+        >
+          View Details
+        </Button>
+      );
+      if (role === 'finance') {
+        if (['Submitted', 'Owner Pending'].includes(record.status)) {
           actions.push(
-            <Button type="link" onClick={() => openActionModal('financeConfirm', record.key)}>
-              Finance Confirm
+            <Button
+              type="link"
+              key="finance-confirm"
+              onClick={() => openActionModal('financeConfirm', record.id)}
+            >
+              Confirm
+            </Button>
+          );
+        } else if (record.status === 'Finance Confirmed') {
+          actions.push(
+            <span
+              key="finance-confirmed"
+              style={{ color: 'green', fontWeight: 'bold' }}
+            >
+              Confirmed
+            </span>
+          );
+        }
+      } else if (role === 'owner') {
+        if (['Finance Confirmed', 'Owner Pending'].includes(record.status)) {
+          actions.push(
+            <Button
+              type="link"
+              key="owner-approve"
+              onClick={() => handleOwnerApprove(record.id)}
+            >
+              Approve
+            </Button>,
+            <Button
+              type="link"
+              key="owner-pending"
+              onClick={() => openActionModal('ownerPending', record.id)}
+            >
+              Set Pending
+            </Button>,
+            <Button
+              type="link"
+              danger
+              key="owner-reject"
+              onClick={() => openActionModal('ownerReject', record.id)}
+            >
+              Reject
             </Button>
           );
         }
-        if (record.status === 'Finance Confirmed') {
-          // Owner decisions: Approve, Pending, or Reject.
-          actions.push(
-            <Button type="link" onClick={() => openActionModal('ownerApprove', record.key)}>
-              Owner Approve
-            </Button>,
-            <Button type="link" onClick={() => openActionModal('ownerPending', record.key)}>
-              Owner Pending
-            </Button>,
-            <Button type="link" danger onClick={() => openActionModal('ownerReject', record.key)}>
-              Owner Reject
-            </Button>
-          );
-        }
+      } else if (role === 'maintenance') {
         if (record.status === 'Owner Approved') {
-          // Maintenance: schedule the resolution date.
           actions.push(
-            <Button type="link" onClick={() => openActionModal('maintenanceSchedule', record.key)}>
+            <Button
+              type="link"
+              key="maintenance-schedule"
+              onClick={() => openActionModal('maintenanceSchedule', record.id)}
+            >
               Schedule
             </Button>
           );
         }
-        if (record.status === 'Maintenance Scheduled') {
-          // Maintenance resolves the issue.
+        if (record.status === 'Maintenance Scheduled' || record.status === 'Resolved') {
+          // Allow resolved requests to remain visible
           actions.push(
-            <Button type="link" onClick={() => handleResolve(record.key)}>
+            <Button
+              type="link"
+              key="resolve"
+              onClick={() => handleResolve(record.id)}
+            >
               Resolve
             </Button>
           );
         }
-        // Common actions: Edit and Delete.
-        actions.push(
-          <Button type="link" onClick={() => handleEdit(record)}>
-            Edit
-          </Button>,
-          <Button type="link" danger onClick={() => handleDelete(record.key)}>
-            Delete
-          </Button>
-        );
-        return <Space size="middle">{actions}</Space>;
-      },
+      }
+      // Common actions: Edit and Delete.
+      // actions.push(
+      //   <Button type="link" key="edit" onClick={() => openModalForEdit(record)}>
+      //     Edit
+      //   </Button>,
+      //   <Button
+      //     type="link"
+      //     danger
+      //     key="delete"
+      //     onClick={() => handleDelete(record.id)}
+      //   >
+      //     Delete
+      //   </Button>
+      // );
+      return <Space wrap>{actions}</Space>;
     },
-  ];
+  });
 
-  // Opens the action modal for a given action type and request.
-  const openActionModal = (type, requestKey) => {
-    setActionModal({ visible: true, type, requestKey });
+  // --- Modal and Action Functions ---
+
+  // Detail Modal: Shows complete details.
+  const openDetailModal = (record) => {
+    setDetailRequest(record);
+    setDetailModalVisible(true);
+  };
+
+  // Action Modal: For finance confirmation, owner pending/reject, and maintenance scheduling.
+  const openActionModal = (type, id) => {
+    setActionModal({ visible: true, type, requestId: id });
     setActionInput(null);
   };
 
-  // Handles OK click from the action modal.
-  const handleActionModalOk = () => {
-    const { type, requestKey } = actionModal;
-
-    setRequests(prevRequests =>
-      prevRequests.map(request => {
-        if (request.key === requestKey) {
-          switch (type) {
-            case 'financeConfirm':
-              if (actionInput === null || actionInput === undefined) {
-                message.error('Please enter a valid price.');
-                return request;
-              }
-              return { ...request, price: actionInput, status: 'Finance Confirmed' };
-            case 'ownerApprove':
-              return { ...request, status: 'Owner Approved' };
-            case 'ownerPending':
-              if (!actionInput) {
-                message.error('Please provide a reason.');
-                return request;
-              }
-              return { ...request, status: 'Owner Pending', reason: actionInput };
-            case 'ownerReject':
-              if (!actionInput) {
-                message.error('Please provide a reason.');
-                return request;
-              }
-              return { ...request, status: 'Owner Rejected', reason: actionInput };
-            case 'maintenanceSchedule':
-              if (!actionInput) {
-                message.error('Please select a scheduled date.');
-                return request;
-              }
-              return {
-                ...request,
-                scheduledDate: dayjs(actionInput).format('YYYY-MM-DD'),
-                status: 'Maintenance Scheduled'
-              };
-            default:
-              return request;
-          }
-        }
-        return request;
-      })
-    );
-
-    // Display a message based on action type.
-    if (type === 'financeConfirm') {
-      message.success('Finance confirmed the issue with price.');
-    } else if (type === 'ownerApprove') {
-      message.success('Owner approved the issue.');
-    } else if (type === 'ownerPending') {
-      message.success('Owner set the issue as pending.');
-    } else if (type === 'ownerReject') {
-      message.success('Owner rejected the issue.');
-    } else if (type === 'maintenanceSchedule') {
-      message.success('Maintenance scheduled a date.');
+  // Owner direct approval.
+  const handleOwnerApprove = async (id) => {
+    try {
+      await axios.put(`http://localhost:5000/api/maintenance/${id}`, {
+        type: 'ownerApprove',
+        payload: {},
+      });
+      message.success('Request approved.');
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to approve request.');
     }
-
-    // Close action modal.
-    setActionModal(prev => ({ ...prev, visible: false }));
   };
 
-  // Directly resolves a request if maintenance has scheduled it.
-  const handleResolve = (key) => {
-    setRequests(prevRequests =>
-      prevRequests.map(request =>
-        request.key === key ? { ...request, status: 'Resolved' } : request
-      )
-    );
-    message.success('Maintenance request resolved!');
+  const handleActionModalOk = async () => {
+    try {
+      const { type, requestId } = actionModal;
+      let payload = {};
+      switch (type) {
+        case 'financeConfirm':
+          if (actionInput == null) {
+            message.error('Please enter a valid price.');
+            return;
+          }
+          payload = { price: actionInput };
+          break;
+        case 'ownerPending':
+          if (!actionInput) {
+            message.error('Please provide a reason.');
+            return;
+          }
+          payload = { reason: actionInput };
+          break;
+        case 'ownerReject':
+          if (!actionInput) {
+            message.error('Please provide a reason.');
+            return;
+          }
+          payload = { reason: actionInput };
+          break;
+        case 'maintenanceSchedule':
+          if (!actionInput) {
+            message.error('Please select a scheduled date.');
+            return;
+          }
+          payload = { scheduledDate: dayjs(actionInput).format('YYYY-MM-DD') };
+          break;
+        case 'resolve':
+          payload = {};
+          break;
+        default:
+          return;
+      }
+      await axios.put(`http://localhost:5000/api/maintenance/${requestId}`, { type, payload });
+      message.success(`Action ${type} completed.`);
+      setActionModal({ visible: false, type: '', requestId: null });
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to update maintenance request.');
+    }
   };
 
-  // Opens the tenant submission modal.
+  const handleResolve = async (id) => {
+    try {
+      await axios.put(`http://localhost:5000/api/maintenance/${id}`, {
+        type: 'resolve',
+        payload: {},
+      });
+      message.success('Maintenance request resolved!');
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to resolve maintenance request.');
+    }
+  };
+
+  // --- Add/Edit Modal Functions ---
   const openModalForAdd = () => {
     form.resetFields();
     setEditingRequest(null);
     setIsModalVisible(true);
   };
 
-  // Prepares the form for editing a request.
-  const handleEdit = (record) => {
-    // For editing, we pre-fill the form. Notice that price is not included in tenant submission.
+  const openModalForEdit = (record) => {
     form.setFieldsValue({
-      ...record,
-      requestDate: dayjs(record.requestDate),
+      tenant_id: record.tenant_id,
+      stallCode: record.stallCode,
+      building_id: record.building_id,
+      issueDescription: record.issueDescription,
     });
     setEditingRequest(record);
     setIsModalVisible(true);
   };
 
-  // Deletes a request.
-  const handleDelete = (key) => {
-    setRequests(prev => prev.filter(request => request.key !== key));
-    message.success('Maintenance request deleted successfully!');
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/maintenance/${id}`);
+      message.success('Maintenance request deleted successfully!');
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to delete maintenance request.');
+    }
   };
 
-  // Handle form OK for adding/editing (tenant submission)
-  // New requests will have status "Submitted"
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
-      const requestData = {
-        ...values,
-        requestDate: dayjs(values.requestDate).format('YYYY-MM-DD'),
-        status: editingRequest ? editingRequest.status : 'Submitted',
-        key: editingRequest ? editingRequest.key : Date.now(), // For production, consider using a UUID library.
-      };
-
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
       if (editingRequest) {
-        setRequests(prev =>
-          prev.map(request =>
-            request.key === editingRequest.key ? requestData : request
-          )
-        );
+        await axios.put(`http://localhost:5000/api/maintenance/${editingRequest.id}`, {
+          type: 'edit',
+          payload: values,
+        });
         message.success('Maintenance request updated successfully!');
       } else {
-        setRequests(prev => [...prev, requestData]);
+        await axios.post('http://localhost:5000/api/maintenance', values);
         message.success('Maintenance request added successfully!');
       }
       setIsModalVisible(false);
-    });
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to submit maintenance request.');
+    }
   };
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
   };
 
-  // Filter handlers.
-  const handleTenantSearch = (e) =>
-    setFilters(prev => ({ ...prev, tenantName: e.target.value }));
-  const handleStatusFilter = (value) =>
-    setFilters(prev => ({ ...prev, status: value }));
-  const handleDateFilter = (date) =>
-    setFilters(prev => ({ ...prev, requestDate: date }));
+  // --- Filter Handlers ---
+  const handleTenantSearch = (e) => {
+    setFilters((prev) => ({ ...prev, tenantName: e.target.value }));
+  };
+
+  const handleStatusFilter = (value) => {
+    setFilters((prev) => ({ ...prev, status: value }));
+  };
+
+  const handleDateFilter = (date) => {
+    setFilters((prev) => ({ ...prev, createdAt: date }));
+  };
 
   return (
-    <div>
+    <div style={{ padding: 24 }}>
       <Button type="primary" onClick={openModalForAdd} style={{ marginBottom: 16 }}>
         Add Maintenance Request
       </Button>
       <Space style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search by Tenant Name"
+          placeholder="Search by Tenant ID"
           value={filters.tenantName}
           onChange={handleTenantSearch}
         />
@@ -355,70 +469,76 @@ const MaintenanceRequests = () => {
           <Option value="Resolved">Resolved</Option>
         </Select>
         <DatePicker
-          placeholder="Filter by Request Date"
-          value={filters.requestDate}
+          placeholder="Filter by Created Date"
+          value={filters.createdAt}
           onChange={handleDateFilter}
         />
       </Space>
-      <Table columns={columns} dataSource={filteredRequests} rowKey="key" />
+      <Table
+        columns={baseColumns}
+        dataSource={visibleRequests}
+        rowKey="id"
+        size="small"
+        scroll={{ x: 800 }}
+      />
 
-      {/* Tenant Add/Edit Modal (for submission) */}
+      {/* Add/Edit Modal */}
       <Modal
         title={editingRequest ? 'Edit Maintenance Request' : 'Add Maintenance Request'}
         visible={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
+        width={500}
       >
         <Form form={form} layout="vertical">
           <Form.Item
-            name="tenantName"
-            label="Tenant Name"
-            rules={[{ required: true, message: 'Please enter the tenant name!' }]}
+            name="tenant_id"
+            label="Tenant ID"
+            rules={[{ required: true, message: 'Please enter tenant id' }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="stallCode"
             label="Stall Code"
-            rules={[{ required: true, message: 'Please enter the stall code!' }]}
+            rules={[{ required: true, message: 'Please enter stall code' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="building_id"
+            label="Building ID"
+            rules={[{ required: true, message: 'Please enter building id' }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="issueDescription"
             label="Issue Description"
-            rules={[{ required: true, message: 'Please describe the issue!' }]}
+            rules={[{ required: true, message: 'Please describe the issue' }]}
           >
-            <Input.TextArea />
-          </Form.Item>
-          <Form.Item
-            name="requestDate"
-            label="Request Date"
-            rules={[{ required: true, message: 'Please select the request date!' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
+            <Input.TextArea rows={4} />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* Generic Action Modal for Finance, Owner, and Maintenance actions */}
+      {/* Action Modal */}
       <Modal
         title={
           actionModal.type === 'financeConfirm'
             ? 'Finance Confirmation'
-            : actionModal.type === 'ownerApprove'
-            ? 'Owner Approval'
             : actionModal.type === 'ownerPending'
-            ? 'Owner Pending'
+            ? 'Set Pending (Enter Reason)'
             : actionModal.type === 'ownerReject'
-            ? 'Owner Rejection'
+            ? 'Owner Rejection (Enter Reason)'
             : actionModal.type === 'maintenanceSchedule'
             ? 'Set Maintenance Schedule'
             : ''
         }
         visible={actionModal.visible}
         onOk={handleActionModalOk}
-        onCancel={() => setActionModal(prev => ({ ...prev, visible: false }))}
+        onCancel={() => setActionModal((prev) => ({ ...prev, visible: false }))}
+        width={450}
       >
         {actionModal.type === 'financeConfirm' && (
           <div>
@@ -429,11 +549,6 @@ const MaintenanceRequests = () => {
               onChange={(value) => setActionInput(value)}
               value={actionInput}
             />
-          </div>
-        )}
-        {actionModal.type === 'ownerApprove' && (
-          <div>
-            <p>Click OK to approve the request.</p>
           </div>
         )}
         {(actionModal.type === 'ownerPending' || actionModal.type === 'ownerReject') && (
@@ -454,6 +569,60 @@ const MaintenanceRequests = () => {
               onChange={(date) => setActionInput(date)}
               value={actionInput}
             />
+          </div>
+        )}
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal
+        title="Maintenance Request Details"
+        visible={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+            Close
+          </Button>,
+        ]}
+        width={600}
+      >
+        {detailRequest && (
+          <div>
+            <p>
+              <strong>Tenant ID:</strong> {detailRequest.tenant_id}
+            </p>
+            <p>
+              <strong>Stall Code:</strong> {detailRequest.stallCode}
+            </p>
+            <p>
+              <strong>Building ID:</strong> {detailRequest.building_id}
+            </p>
+            <p>
+              <strong>Room Name:</strong> {detailRequest.roomName || '-'}
+            </p>
+            <p>
+              <strong>Issue Description:</strong> {detailRequest.issueDescription}
+            </p>
+            {role !== 'maintenance' && (
+              <p>
+                <strong>Price:</strong>{' '}
+                {detailRequest.price ? `$${detailRequest.price}` : '-'}
+              </p>
+            )}
+            <p>
+              <strong>Status:</strong> {detailRequest.status}
+            </p>
+            {detailRequest.reason && (
+              <p>
+                <strong>Reason:</strong> {detailRequest.reason}
+              </p>
+            )}
+            <p>
+              <strong>Created At:</strong> {dayjs(detailRequest.createdAt).format('YYYY-MM-DD')}
+            </p>
+            <p>
+              <strong>Scheduled Date:</strong>{' '}
+              {detailRequest.scheduledDate ? dayjs(detailRequest.scheduledDate).format('YYYY-MM-DD') : '-'}
+            </p>
           </div>
         )}
       </Modal>

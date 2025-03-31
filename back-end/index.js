@@ -10,7 +10,7 @@ const utilityRoutes = require("./routes/utilityRoutes")
 const RentRoute = require("./routes/rentRoutes");
 const usersRouter = require("./routes/users")
 const login = require("./routes/loginRoute")
-
+const maintenanceRoutes = require("./routes/maintenance")
 
 
 
@@ -27,6 +27,7 @@ app.use('/stalls', stallRoutes);
 app.use('/api/utilities', utilityRoutes);
 app.use(`/api/rent`,RentRoute)
 app.use("/api/users", usersRouter);
+app.use('/api/maintenance', maintenanceRoutes);
 app.use(login)
 // A simple test route
 app.get('/', (req, res) => {
