@@ -1,4 +1,3 @@
-// AuthContext.jsx
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [accountType, setAccountType] = useState(null); // "owner" or "user"
   const [token, setToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // Prevent multiple clicks
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,17 +54,30 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    setAccount(null);
-    setToken(null);
-    setAccountType(null);
-    localStorage.removeItem("owner");
-    localStorage.removeItem("user");
-    localStorage.removeItem("ERPUSER_Token");
-    navigate("/");
+    if (isLoggingOut) return; // Prevent multiple clicks
+    setIsLoggingOut(true);
+
+    requestAnimationFrame(() => {
+      setAccount(null);
+      setToken(null);
+      setAccountType(null);
+      localStorage.removeItem("owner");
+      localStorage.removeItem("user");
+      localStorage.removeItem("ERPUSER_Token");
+
+      setTimeout(() => {
+        setIsLoggingOut(false);
+        navigate("/");
+      }, 50);
+    });
   };
+
   const role = accountType === "user" ? account?.role : accountType;
+
   return (
-    <AuthContext.Provider value={{ account, accountType, role, token, authLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{ account, accountType, role, token, authLoading, login, logout, isLoggingOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

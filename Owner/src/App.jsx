@@ -68,7 +68,7 @@ const App = () => {
     const navigate = useNavigate();
     const location = useLocation();
     // const [authLoading, setAuthLoading] = useState(true); // Handled by context
-    const { role, account, accountType, authLoading,logout } = useAuth();
+    const { role, account, accountType, authLoading,logout,isLoggingOut } = useAuth();
       const owner = accountType === "owner" ? account : null;
       const user = accountType === "user" ? account : null
       if (!owner && !user) {
@@ -170,7 +170,6 @@ const App = () => {
               ]
             : []),
     ];
-
     const getLevelKeys = (items1) => {
         const key = {};
         const func = (items2, level = 1) => {
@@ -271,11 +270,18 @@ const App = () => {
             key: '3',
             label: (
                 <span
-                    style={{ width: '100%', display: 'flex', alignItems: 'center' }}
-                    onClick={logout} // Use the logout function from context
-                >
-                    Logout
-                </span>
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: isLoggingOut ? "not-allowed" : "pointer",
+                  opacity: isLoggingOut ? 0.5 : 1,
+                  transition: "opacity 0.2s ease-in-out"
+                }}
+                onClick={logout}
+              >
+                Logout
+              </span>
             ),
         },
     ];

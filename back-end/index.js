@@ -11,8 +11,7 @@ const RentRoute = require("./routes/rentRoutes");
 const usersRouter = require("./routes/users")
 const login = require("./routes/loginRoute")
 const maintenanceRoutes = require("./routes/maintenance")
-
-
+const tenantsRoutes = require('./routes/tenantLoginRoutes');
 
 const cors = require("cors")
 const PORT = process.env.PORT || 5000;
@@ -29,6 +28,7 @@ app.use(`/api/rent`,RentRoute)
 app.use("/api/users", usersRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use(login)
+app.use(tenantsRoutes);
 // A simple test route
 app.get('/', (req, res) => {
   res.send('Welcome to the Tenant Management API');
