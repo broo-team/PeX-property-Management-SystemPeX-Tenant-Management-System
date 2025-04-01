@@ -1,47 +1,51 @@
-// controllers/maintenanceController.js
 const db = require('../db/connection');
 
 // Create a new maintenance request (tenant submission)
-
 exports.createMaintenanceRequest = async (req, res) => {
-    try {
-      // Extract necessary details from the request body.
-      const { tenant_id, stallCode, building_id, issueDescription,category } = req.body;
-      
-      // Validate that all required fields are provided.
-      if (!tenant_id || !stallCode || !building_id || !issueDescription || !category) {
-        return res.status(400).json({ error: "Please provide tenant_id, stallCode, building_id, and issueDescription" });
-      }
-      
-      // Insert a new maintenance request.
-      const [result] = await db.execute(
-        `INSERT INTO maintenance_requests (tenant_id, stallCode, building_id, issueDescription,category, status)
-         VALUES (?, ?, ?, ?,?, 'Submitted')`,
-        [tenant_id, stallCode, building_id, issueDescription,category],
-      );
-      
-      const insertedId = result.insertId;
-      
-      // Fetch the newly created record to send back in the response.
-      const [rows] = await db.execute(
-        `SELECT * FROM maintenance_requests WHERE id = ?`,
-        [insertedId]
-      );
-      
-      res.status(201).json(rows[0]);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to create maintenance request", details: err.message });
+  try {
+    // Extract necessary details from the request body.
+    const { tenant_id, stallCode, building_id, issueDescription, category } = req.body;
+    
+    // Validate that all required fields are provided.
+    if (!tenant_id || !stallCode || !building_id || !issueDescription || !category) {
+      return res.status(400).json({ error: "Please provide tenant_id, stallCode, building_id, issueDescription, and category" });
     }
-  };
+    
+    // Insert a new maintenance request.
+    // tenantApproved will default to false (assuming the DB schema default)
+    const [result] = await db.execute(
+      `INSERT INTO maintenance_requests (tenant_id, stallCode, building_id, issueDescription, category, status)
+       VALUES (?, ?, ?, ?, ?, 'Submitted')`,
+      [tenant_id, stallCode, building_id, issueDescription, category]
+    );
+    
+    const insertedId = result.insertId;
+    
+    // Fetch the newly created record to send back in the response.
+    const [rows] = await db.execute(
+      `SELECT * FROM maintenance_requests WHERE id = ?`,
+      [insertedId]
+    );
+    
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create maintenance request", details: err.message });
+  }
+};
 
 // Retrieve maintenance requests with optional filtering (with join to tenants table)
 exports.getMaintenanceRequests = async (req, res) => {
   try {
     let query = `
-      SELECT m.*, t.full_name AS tenantName, t.room, t.building_id, t.tenant_id AS tenantCode
+      SELECT m.*, 
+             t.full_name AS full_name, 
+             r.roomName AS roomName, 
+             t.building_id AS tenantBuildingId, 
+             t.tenant_id AS tenantCode
       FROM maintenance_requests m
       JOIN tenants t ON m.tenant_id = t.id
+      JOIN rooms r ON t.room = r.id
     `;
     const conditions = [];
     const params = [];
@@ -138,6 +142,13 @@ exports.updateMaintenanceRequest = async (req, res) => {
                        WHERE id = ?`;
         updateParams = [requestId];
         break;
+      case "tenantApprove":
+        // New update case to record tenant approval.
+        updateQuery = `UPDATE maintenance_requests 
+                       SET tenantApproved = true, status = 'Tenant Approved' 
+                       WHERE id = ?`;
+        updateParams = [requestId];
+        break;
       default:
         return res.status(400).json({ error: "Invalid update type" });
     }
@@ -145,7 +156,11 @@ exports.updateMaintenanceRequest = async (req, res) => {
     await db.execute(updateQuery, updateParams);
     // Retrieve the updated maintenance request with tenant details.
     const [updatedRows] = await db.execute(
-      `SELECT m.*, t.full_name AS tenantName, t.room, t.building_id, t.tenant_id AS tenantCode
+      `SELECT m.*, 
+              t.full_name AS tenantName, 
+              t.room, 
+              t.building_id, 
+              t.tenant_id AS tenantCode
        FROM maintenance_requests m
        JOIN tenants t ON m.tenant_id = t.id
        WHERE m.id = ?`, [requestId]

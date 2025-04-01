@@ -1,4 +1,3 @@
-// https://copilot.microsoft.com/chats/FPJnhstvi6BvJowFRGhsp
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
@@ -15,12 +14,11 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext'; // Adjust the path as needed
+import { useAuth } from '../../context/AuthContext';
 
 const { Option } = Select;
 
 const MaintenanceRequests = () => {
-  // Get the current role (expected: "owner", "finance", "maintenance")
   const { role } = useAuth();
 
   const [form] = Form.useForm();
@@ -41,20 +39,13 @@ const MaintenanceRequests = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [detailRequest, setDetailRequest] = useState(null);
 
-  // Fetch maintenance requests from the backend.
   const fetchRequests = async () => {
     try {
       const url = 'http://localhost:5000/api/maintenance';
       const params = {};
-      if (filters.tenantName) {
-        params.tenantName = filters.tenantName;
-      }
-      if (filters.status) {
-        params.status = filters.status;
-      }
-      if (filters.createdAt) {
-        params.createdAt = dayjs(filters.createdAt).format('YYYY-MM-DD');
-      }
+      if (filters.tenantName) params.tenantName = filters.tenantName;
+      if (filters.status) params.status = filters.status;
+      if (filters.createdAt) params.createdAt = dayjs(filters.createdAt).format('YYYY-MM-DD');
       const response = await axios.get(url, { params });
       setRequests(response.data);
     } catch (error) {
@@ -66,33 +57,41 @@ const MaintenanceRequests = () => {
     fetchRequests();
   }, [filters]);
 
-  // Update visibleRequests so that all roles see "Resolved" status as well.
   const visibleRequests = useMemo(() => {
+    const baseStatuses = [
+      'Submitted',
+      'Finance Confirmed',
+      'Owner Approved',
+      'Owner Pending',
+      'Owner Rejected',
+      'Maintenance Scheduled',
+      'Tenant Approved',
+      'Resolved',
+    ];
     if (role === 'finance') {
-      // Finance sees Submitted, Owner Pending, Finance Confirmed, Maintenance Scheduled, and Resolved requests.
-      return requests.filter(r =>
-        ['Submitted', 'Owner Pending', 'Finance Confirmed', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
-      );
+      return requests.filter(r => baseStatuses.includes(r.status));
     } else if (role === 'owner') {
-      // Owner sees Finance Confirmed, Owner Pending, Owner Approved, Owner Rejected, Maintenance Scheduled, and Resolved.
-      return requests.filter(r =>
-        ['Finance Confirmed', 'Owner Pending', 'Owner Approved', 'Owner Rejected', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
-      );
+      return requests.filter(r => baseStatuses.includes(r.status));
     } else if (role === 'maintenance') {
-      // Maintenance sees Owner Approved, Maintenance Scheduled, and Resolved.
-      return requests.filter(r =>
-        ['Owner Approved', 'Maintenance Scheduled', 'Resolved'].includes(r.status)
-      );
+      return requests.filter(r => ['Owner Approved', 'Maintenance Scheduled', 'Tenant Approved', 'Resolved'].includes(r.status));
+    } else if (role === 'tenant') {
+      return requests.filter(r => baseStatuses.includes(r.status));
     }
     return requests;
   }, [requests, role]);
 
-  // Build baseColumns – these columns are always shown.
   const baseColumns = [
     {
-      title: 'Tenant ID',
-      dataIndex: 'tenant_id',
-      key: 'tenant_id',
+      title: 'Tenant Name',
+      dataIndex: 'full_name', // from backend alias
+      key: 'full_name',
+      ellipsis: true,
+      width: 150,
+    },
+    {
+      title: 'Room',
+      dataIndex: 'roomName', // from backend alias for t.room
+      key: 'roomName',
       ellipsis: true,
       width: 100,
     },
@@ -109,13 +108,6 @@ const MaintenanceRequests = () => {
       key: 'building_id',
       ellipsis: true,
       width: 100,
-    },
-    {
-      title: 'Room Name',
-      dataIndex: 'roomName', // Ensure your API returns roomName joined from tenants.
-      key: 'roomName',
-      ellipsis: true,
-      width: 120,
     },
     {
       title: 'Created At',
@@ -135,7 +127,6 @@ const MaintenanceRequests = () => {
     },
   ];
 
-  // Price column shown only for roles other than maintenance.
   if (role !== 'maintenance') {
     baseColumns.push({
       title: 'Price',
@@ -147,7 +138,6 @@ const MaintenanceRequests = () => {
     });
   }
 
-  // Status column: displays current status and if pending or rejected, the reason.
   baseColumns.push({
     title: 'Status',
     dataIndex: 'status',
@@ -157,13 +147,14 @@ const MaintenanceRequests = () => {
     render: (status, record) => {
       let color = 'default';
       switch (status) {
-        case 'Submitted':         color = 'gray'; break;
-        case 'Finance Confirmed':   color = 'orange'; break;
-        case 'Owner Approved':      color = 'blue'; break;
-        case 'Owner Pending':       color = 'gold'; break;
-        case 'Owner Rejected':      color = 'red'; break;
+        case 'Submitted':           color = 'gray'; break;
+        case 'Finance Confirmed':     color = 'orange'; break;
+        case 'Owner Approved':        color = 'blue'; break;
+        case 'Owner Pending':         color = 'gold'; break;
+        case 'Owner Rejected':        color = 'red'; break;
         case 'Maintenance Scheduled': color = 'purple'; break;
-        case 'Resolved':            color = 'green'; break;
+        case 'Tenant Approved':       color = 'cyan'; break;
+        case 'Resolved':              color = 'green'; break;
         default: break;
       }
       return (
@@ -172,16 +163,23 @@ const MaintenanceRequests = () => {
             {status}
           </Tag>
           {(['Owner Pending', 'Owner Rejected'].includes(status) && record.reason) && (
-            <div style={{ fontSize: '12px', color: '#555' }}>
-              Reason: {record.reason}
-            </div>
+            <div style={{ fontSize: '12px', color: '#555' }}>Reason: {record.reason}</div>
           )}
         </div>
       );
     },
   });
 
-  // Actions column: role-specific actions and a "View Details" button.
+  baseColumns.push({
+    title: 'Tenant Approval',
+    dataIndex: 'tenantApproved', // boolean field from backend
+    key: 'tenantApproved',
+    ellipsis: true,
+    width: 120,
+    render: (approved) =>
+      approved ? <Tag color="blue">Approved</Tag> : <Tag color="volcano">Not Approved</Tag>,
+  });
+
   baseColumns.push({
     title: 'Actions',
     key: 'actions',
@@ -189,11 +187,7 @@ const MaintenanceRequests = () => {
     render: (_, record) => {
       const actions = [];
       actions.push(
-        <Button
-          type="link"
-          key="view-details"
-          onClick={() => openDetailModal(record)}
-        >
+        <Button type="link" key="view-details" onClick={() => openDetailModal(record)}>
           View Details
         </Button>
       );
@@ -205,15 +199,12 @@ const MaintenanceRequests = () => {
               key="finance-confirm"
               onClick={() => openActionModal('financeConfirm', record.id)}
             >
-              Confirm
+              Set Cost
             </Button>
           );
         } else if (record.status === 'Finance Confirmed') {
           actions.push(
-            <span
-              key="finance-confirmed"
-              style={{ color: 'green', fontWeight: 'bold' }}
-            >
+            <span key="finance-confirmed" style={{ color: 'green', fontWeight: 'bold' }}>
               Confirmed
             </span>
           );
@@ -257,8 +248,7 @@ const MaintenanceRequests = () => {
             </Button>
           );
         }
-        if (record.status === 'Maintenance Scheduled' || record.status === 'Resolved') {
-          // Allow resolved requests to remain visible
+        if (['Maintenance Scheduled', 'Resolved'].includes(record.status)) {
           actions.push(
             <Button
               type="link"
@@ -269,40 +259,39 @@ const MaintenanceRequests = () => {
             </Button>
           );
         }
+      } else if (role === 'tenant') {
+        if (!record.tenantApproved) {
+          actions.push(
+            <Button
+              type="link"
+              key="tenant-approve"
+              onClick={() => handleTenantApprove(record.id)}
+            >
+              Approve Resolution
+            </Button>
+          );
+        } else {
+          actions.push(
+            <span key="tenant-approved" style={{ color: 'blue', fontWeight: 'bold' }}>
+              Approved
+            </span>
+          );
+        }
       }
-      // Common actions: Edit and Delete.
-      // actions.push(
-      //   <Button type="link" key="edit" onClick={() => openModalForEdit(record)}>
-      //     Edit
-      //   </Button>,
-      //   <Button
-      //     type="link"
-      //     danger
-      //     key="delete"
-      //     onClick={() => handleDelete(record.id)}
-      //   >
-      //     Delete
-      //   </Button>
-      // );
       return <Space wrap>{actions}</Space>;
     },
   });
 
-  // --- Modal and Action Functions ---
-
-  // Detail Modal: Shows complete details.
   const openDetailModal = (record) => {
     setDetailRequest(record);
     setDetailModalVisible(true);
   };
 
-  // Action Modal: For finance confirmation, owner pending/reject, and maintenance scheduling.
   const openActionModal = (type, id) => {
     setActionModal({ visible: true, type, requestId: id });
     setActionInput(null);
   };
 
-  // Owner direct approval.
   const handleOwnerApprove = async (id) => {
     try {
       await axios.put(`http://localhost:5000/api/maintenance/${id}`, {
@@ -313,6 +302,19 @@ const MaintenanceRequests = () => {
       fetchRequests();
     } catch (error) {
       message.error('Failed to approve request.');
+    }
+  };
+
+  const handleTenantApprove = async (id) => {
+    try {
+      await axios.put(`http://localhost:5000/api/maintenance/${id}`, {
+        type: 'tenantApprove',
+        payload: {},
+      });
+      message.success('Resolution approved by tenant.');
+      fetchRequests();
+    } catch (error) {
+      message.error('Failed to update tenant approval.');
     }
   };
 
@@ -377,7 +379,6 @@ const MaintenanceRequests = () => {
     }
   };
 
-  // --- Add/Edit Modal Functions ---
   const openModalForAdd = () => {
     form.resetFields();
     setEditingRequest(null);
@@ -429,27 +430,18 @@ const MaintenanceRequests = () => {
     setIsModalVisible(false);
   };
 
-  // --- Filter Handlers ---
-  const handleTenantSearch = (e) => {
+  const handleTenantSearch = (e) =>
     setFilters((prev) => ({ ...prev, tenantName: e.target.value }));
-  };
-
-  const handleStatusFilter = (value) => {
+  const handleStatusFilter = (value) =>
     setFilters((prev) => ({ ...prev, status: value }));
-  };
-
-  const handleDateFilter = (date) => {
+  const handleDateFilter = (date) =>
     setFilters((prev) => ({ ...prev, createdAt: date }));
-  };
 
   return (
     <div style={{ padding: 24 }}>
-      {/* <Button type="primary" onClick={openModalForAdd} style={{ marginBottom: 16 }}>
-        Add Maintenance Request
-      </Button> */}
       <Space style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search by Tenant ID"
+          placeholder="Search by Tenant Name"
           value={filters.tenantName}
           onChange={handleTenantSearch}
         />
@@ -458,7 +450,7 @@ const MaintenanceRequests = () => {
           value={filters.status}
           onChange={handleStatusFilter}
           allowClear
-          style={{ width: 160 }}
+          style={{ width: 180 }}
         >
           <Option value="Submitted">Submitted</Option>
           <Option value="Finance Confirmed">Finance Confirmed</Option>
@@ -466,6 +458,7 @@ const MaintenanceRequests = () => {
           <Option value="Owner Pending">Owner Pending</Option>
           <Option value="Owner Rejected">Owner Rejected</Option>
           <Option value="Maintenance Scheduled">Maintenance Scheduled</Option>
+          <Option value="Tenant Approved">Tenant Approved</Option>
           <Option value="Resolved">Resolved</Option>
         </Select>
         <DatePicker
@@ -482,7 +475,6 @@ const MaintenanceRequests = () => {
         scroll={{ x: 800 }}
       />
 
-      {/* Add/Edit Modal */}
       <Modal
         title={editingRequest ? 'Edit Maintenance Request' : 'Add Maintenance Request'}
         visible={isModalVisible}
@@ -493,7 +485,7 @@ const MaintenanceRequests = () => {
         <Form form={form} layout="vertical">
           <Form.Item
             name="tenant_id"
-            label="Tenant ID"
+            label="Tenant ID (used to fetch tenant details)"
             rules={[{ required: true, message: 'Please enter tenant id' }]}
           >
             <Input />
@@ -522,7 +514,6 @@ const MaintenanceRequests = () => {
         </Form>
       </Modal>
 
-      {/* Action Modal */}
       <Modal
         title={
           actionModal.type === 'financeConfirm'
@@ -542,7 +533,7 @@ const MaintenanceRequests = () => {
       >
         {actionModal.type === 'financeConfirm' && (
           <div>
-            <label>Enter Price:</label>
+            <label>Enter Cost:</label>
             <InputNumber
               style={{ width: '100%' }}
               min={0}
@@ -573,7 +564,6 @@ const MaintenanceRequests = () => {
         )}
       </Modal>
 
-      {/* Detail Modal */}
       <Modal
         title="Maintenance Request Details"
         visible={detailModalVisible}
@@ -588,7 +578,10 @@ const MaintenanceRequests = () => {
         {detailRequest && (
           <div>
             <p>
-              <strong>Tenant ID:</strong> {detailRequest.tenant_id}
+              <strong>Tenant Name:</strong> {detailRequest.full_name || '-'}
+            </p>
+            <p>
+              <strong>Room:</strong> {detailRequest.roomName || '-'}
             </p>
             <p>
               <strong>Stall Code:</strong> {detailRequest.stallCode}
@@ -597,19 +590,23 @@ const MaintenanceRequests = () => {
               <strong>Building ID:</strong> {detailRequest.building_id}
             </p>
             <p>
-              <strong>Room Name:</strong> {detailRequest.roomName || '-'}
-            </p>
-            <p>
               <strong>Issue Description:</strong> {detailRequest.issueDescription}
             </p>
             {role !== 'maintenance' && (
               <p>
-                <strong>Price:</strong>{' '}
-                {detailRequest.price ? `$${detailRequest.price}` : '-'}
+                <strong>Price:</strong> {detailRequest.price ? `$${detailRequest.price}` : '-'}
               </p>
             )}
             <p>
               <strong>Status:</strong> {detailRequest.status}
+            </p>
+            <p>
+              <strong>Tenant Approval:</strong>{' '}
+              {detailRequest.tenantApproved ? (
+                <Tag color="blue">Approved</Tag>
+              ) : (
+                <Tag color="volcano">Not Approved</Tag>
+              )}
             </p>
             {detailRequest.reason && (
               <p>
