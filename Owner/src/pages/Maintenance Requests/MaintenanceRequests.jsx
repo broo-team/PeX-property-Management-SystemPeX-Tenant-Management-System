@@ -444,9 +444,9 @@ const MaintenanceRequests = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Button type="primary" onClick={openModalForAdd} style={{ marginBottom: 16 }}>
+      {/* <Button type="primary" onClick={openModalForAdd} style={{ marginBottom: 16 }}>
         Add Maintenance Request
-      </Button>
+      </Button> */}
       <Space style={{ marginBottom: 16 }}>
         <Input
           placeholder="Search by Tenant ID"
