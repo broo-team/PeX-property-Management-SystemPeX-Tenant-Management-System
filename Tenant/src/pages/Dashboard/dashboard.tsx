@@ -74,6 +74,7 @@ import { DayPicker } from "react-day-picker";
 import { addDays } from "date-fns";
 import "react-day-picker/dist/style.css";
 import PaymentButton from "../payment/PaymentButton";
+import { Maintenance } from "../maintenance/Maintenance";
 
 type LeasePayment = {
   _id: string;
@@ -410,28 +411,28 @@ export default function Dashboard() {
     }
   };
 
-  const handleMaintenanceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await axiosInstance.post(
-        "/api/maintenances/createMaintenance",
-        newMaintenanceRequest
-      );
-      toast({
-        title: "Success",
-        description: "Maintenance request submitted successfully.",
-      });
-      setNewMaintenanceRequest({ description: "", category: "Other" });
-      fetchMaintenanceRequests();
-    } catch (error) {
-      console.error("Error submitting maintenance request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit maintenance request. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  // const handleMaintenanceSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   try {
+  //     await axiosInstance.post(
+  //       "/api/maintenances",
+  //       newMaintenanceRequest
+  //     );
+  //     toast({
+  //       title: "Success",
+  //       description: "Maintenance request submitted successfully.",
+  //     });
+  //     setNewMaintenanceRequest({ description: "", category: "Other" });
+  //     fetchMaintenanceRequests();
+  //   } catch (error) {
+  //     console.error("Error submitting maintenance request:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to submit maintenance request. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -1350,7 +1351,10 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-
+                <TabsContent value="maintenance">
+  <Maintenance />
+</TabsContent>
+{/* 
                 <TabsContent value="maintenance">
                   <Card>
                     <CardHeader>
@@ -1464,7 +1468,7 @@ export default function Dashboard() {
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
+                </TabsContent> */}
 
                 <TabsContent value="rules">
                   <Card>
