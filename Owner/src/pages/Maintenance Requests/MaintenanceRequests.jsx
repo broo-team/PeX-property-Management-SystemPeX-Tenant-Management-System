@@ -102,15 +102,9 @@ const MaintenanceRequests = () => {
       ellipsis: true,
       width: 100,
     },
+
     {
-      title: 'Building ID',
-      dataIndex: 'building_id',
-      key: 'building_id',
-      ellipsis: true,
-      width: 100,
-    },
-    {
-      title: 'Created At',
+      title: 'Issue Date',
       dataIndex: 'createdAt',
       key: 'createdAt',
       ellipsis: true,
