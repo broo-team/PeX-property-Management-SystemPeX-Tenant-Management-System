@@ -9,6 +9,7 @@ interface TenantData {
   phone: string;
   room: string;
   building_id: number;
+  stallCode:number;
 }
 
 interface BuildingData {
@@ -30,6 +31,7 @@ interface LoginResponse {
   token: string;
   tenant: TenantData;
   building: BuildingData;
+  stallCode:TenantData;
 }
 
 interface AuthContextType {

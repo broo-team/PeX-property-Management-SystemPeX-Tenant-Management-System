@@ -6,18 +6,18 @@ const db = require('../db/connection');
 exports.createMaintenanceRequest = async (req, res) => {
     try {
       // Extract necessary details from the request body.
-      const { tenant_id, stallCode, building_id, issueDescription } = req.body;
+      const { tenant_id, stallCode, building_id, issueDescription,category } = req.body;
       
       // Validate that all required fields are provided.
-      if (!tenant_id || !stallCode || !building_id || !issueDescription) {
+      if (!tenant_id || !stallCode || !building_id || !issueDescription || !category) {
         return res.status(400).json({ error: "Please provide tenant_id, stallCode, building_id, and issueDescription" });
       }
       
       // Insert a new maintenance request.
       const [result] = await db.execute(
-        `INSERT INTO maintenance_requests (tenant_id, stallCode, building_id, issueDescription, status)
-         VALUES (?, ?, ?, ?, 'Submitted')`,
-        [tenant_id, stallCode, building_id, issueDescription]
+        `INSERT INTO maintenance_requests (tenant_id, stallCode, building_id, issueDescription,category, status)
+         VALUES (?, ?, ?, ?,?, 'Submitted')`,
+        [tenant_id, stallCode, building_id, issueDescription,category],
       );
       
       const insertedId = result.insertId;

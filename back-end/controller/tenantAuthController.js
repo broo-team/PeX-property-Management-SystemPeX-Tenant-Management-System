@@ -15,14 +15,13 @@ exports.tenantLogin = async (req, res) => {
     }
 
     // Query the tenants table for a tenant with the provided phone
-    let [rows] = await db.query("SELECT * FROM tenants WHERE phone = ?", [phone]);
-    if (rows.length === 0) {
+    let [tenantRows] = await db.query("SELECT * FROM tenants WHERE phone = ?", [phone]);
+    if (tenantRows.length === 0) {
       return res.status(401).json({
         message: "Invalid credentials.",
       });
     }
-
-    const tenant = rows[0];
+    const tenant = tenantRows[0];
 
     // Perform a plain text password comparison
     if (tenant.password !== password) {
@@ -32,13 +31,30 @@ exports.tenantLogin = async (req, res) => {
     }
 
     // Fetch associated building info using the tenant's building_id
-    [rows] = await db.query("SELECT * FROM buildings WHERE id = ?", [tenant.building_id]);
-    let buildingInfo = rows.length > 0 ? rows[0] : null;
-
+    let [buildingRows] = await db.query("SELECT * FROM buildings WHERE id = ?", [tenant.building_id]);
+    let buildingInfo = buildingRows.length > 0 ? buildingRows[0] : null;
     // Remove sensitive info from building details
     if (buildingInfo) {
       const { owner_phone, password, ...safeBuilding } = buildingInfo;
       buildingInfo = safeBuilding;
+    }
+
+    // Retrieve additional tenant info: roomName from rooms table and stallCode from stalls table
+    let roomName = null;
+    let stallCode = null;
+    const roomId = parseInt(tenant.room, 10);
+    if (!isNaN(roomId)) {
+      const [roomRows] = await db.query("SELECT * FROM rooms WHERE id = ?", [roomId]);
+      if (roomRows.length > 0) {
+        roomName = roomRows[0].roomName;
+        const roomStallId = roomRows[0].stall_id;
+        if (roomStallId) {
+          const [stallRows] = await db.query("SELECT * FROM stalls WHERE id = ?", [roomStallId]);
+          if (stallRows.length > 0) {
+            stallCode = stallRows[0].stallCode;
+          }
+        }
+      }
     }
 
     // Create a payload for the JWT
@@ -55,14 +71,15 @@ exports.tenantLogin = async (req, res) => {
     // Generate a JWT token; expires in 1 hour
     const token = jwt.sign(payload, secretKey, { expiresIn: '1h' });
 
-    // Prepare tenant data for response (without sensitive data)
+    // Prepare tenant data for the response (without sensitive data)
     const safeTenant = {
       id: tenant.id,
       tenant_id: tenant.tenant_id,
       full_name: tenant.full_name,
       phone: tenant.phone,
-      room: tenant.room,
       building_id: tenant.building_id,
+      roomName: roomName,    // Room name from the rooms table
+      stallCode: stallCode   // Stall code from the stalls table
     };
 
     console.log("Tenant authenticated:", safeTenant);
@@ -80,4 +97,5 @@ exports.tenantLogin = async (req, res) => {
     });
   }
 };
+
 // https://copilot.microsoft.com/chats/WwBJ8SDisn2LPToDrLe7G
