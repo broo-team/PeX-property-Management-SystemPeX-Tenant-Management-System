@@ -37,6 +37,7 @@ interface MaintenanceResponse {
   category: string;
   status: string;
   createdAt: string;
+  tenantApproved: boolean; // Field to track tenant approval
 }
 
 export function Maintenance() {
@@ -47,10 +48,11 @@ export function Maintenance() {
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceResponse[]>([]);
   const [isLoading, setIsLoading] = useState({ maintenance: true });
   const { user } = useAuth(); // Fetch logged-in user's data
-
-  const getStatusColor = (status: string | undefined) => {
+  const getStatusColor = (status: string | undefined, tenantApproved: boolean) => {
     if (!status) return 'bg-gray-100 text-gray-800';
-
+  
+    if (tenantApproved) return 'bg-purple-100 text-purple-800'; // Show "Approved" color
+  
     switch (status.toLowerCase()) {
       case 'submitted':
         return 'bg-blue-100 text-blue-800';
@@ -58,25 +60,16 @@ export function Maintenance() {
         return 'bg-yellow-100 text-yellow-800';
       case 'resolved':
         return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
-
-  const renderSkeleton = () => (
-    <div className="space-y-4">
-      {[...Array(3)].map((_, index) => (
-        <Skeleton key={index} className="h-12 w-full" />
-      ))}
-    </div>
-  );
+  
 
   const fetchMaintenanceRequests = async () => {
     setIsLoading({ maintenance: true });
     try {
-      const response = await axiosInstance.get('/api/maintenance'); // Get all requests for the tenant
+      const response = await axiosInstance.get('/api/maintenance');
       setMaintenanceRequests(response.data);
     } catch (error) {
       console.error('Error fetching maintenance requests:', error);
@@ -97,7 +90,6 @@ export function Maintenance() {
   const handleMaintenanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Ensure user data is available
     if (!user || !user.tenant || !user.building) {
       toast({
         title: 'Error',
@@ -107,7 +99,6 @@ export function Maintenance() {
       return;
     }
 
-    // Construct request payload
     const maintenancePayload = {
       tenant_id: user.tenant.id,
       stallCode: user.tenant.stallCode,
@@ -117,19 +108,15 @@ export function Maintenance() {
     };
 
     try {
-      // API request to create a maintenance request
       const response = await axiosInstance.post('/api/maintenance', maintenancePayload);
 
-      // Success feedback
       toast({
         title: 'Success',
         description: 'Maintenance request submitted successfully.',
       });
 
-      // Update maintenanceRequests state with the new request
       setMaintenanceRequests([response.data, ...maintenanceRequests]);
 
-      // Clear the form
       setNewMaintenanceRequest({ issueDescription: '', category: 'Other' });
     } catch (error) {
       console.error('Error submitting maintenance request:', error);
@@ -141,12 +128,44 @@ export function Maintenance() {
     }
   };
 
+  const handleTenantApproval = async (requestId: number) => {
+    try {
+      const response = await axiosInstance.put(`/api/maintenance/${requestId}`, {
+        type: 'tenantApprove',
+      });
+
+      const updatedRequest = response.data;
+
+      toast({
+        title: 'Success',
+        description: 'Maintenance request approved successfully.',
+      });
+
+      setMaintenanceRequests(
+        maintenanceRequests.map((request) =>
+          request.id === requestId ? updatedRequest : request
+        )
+      );
+    } catch (error) {
+      console.error('Error approving maintenance request:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to approve maintenance request. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const filterApprovedRequests = (requests: MaintenanceResponse[]) => {
+    return requests.filter((request) => request.tenantApproved);
   };
 
   return (
@@ -216,7 +235,11 @@ export function Maintenance() {
         </form>
 
         {isLoading.maintenance ? (
-          renderSkeleton()
+          <div className="space-y-4">
+            {[...Array(3)].map((_, index) => (
+              <Skeleton key={index} className="h-12 w-full" />
+            ))}
+          </div>
         ) : maintenanceRequests.length > 0 ? (
           <ScrollArea className="h-[300px]">
             <div className="space-y-4">
@@ -225,17 +248,40 @@ export function Maintenance() {
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <CardTitle className="text-lg">{request.category}</CardTitle>
-                      <Badge variant="outline" className={getStatusColor(request.status)}>
-                        {request.status}
-                      </Badge>
+                      <Badge variant="outline" className={getStatusColor(request.status, request.tenantApproved)}>
+  {request.tenantApproved ? 'Approved' : request.status}
+</Badge>
+
                     </div>
                     <CardDescription>{formatDate(request.createdAt)}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p>{request.issueDescription}</p>
+                    {request.status === 'Resolved' && !request.tenantApproved && (
+                      <Button
+                        onClick={() => handleTenantApproval(request.id)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white mt-4"
+                      >
+                        Approve Resolution
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tenant-Approved Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {filterApprovedRequests(maintenanceRequests).map((approvedRequest) => (
+                    <div key={approvedRequest.id}>
+                      <p>Category: {approvedRequest.category}</p>
+                      <p>Description: {approvedRequest.issueDescription}</p>
+                      <p>Status: {approvedRequest.status}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             </div>
           </ScrollArea>
         ) : (
