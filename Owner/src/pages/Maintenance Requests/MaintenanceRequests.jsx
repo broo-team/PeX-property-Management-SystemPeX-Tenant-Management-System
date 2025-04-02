@@ -14,7 +14,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext'; // Adjust the path as needed
 
 const { Option } = Select;
 
@@ -57,6 +57,7 @@ const MaintenanceRequests = () => {
     fetchRequests();
   }, [filters]);
 
+  // Include Tenant Approved status in the filtering.
   const visibleRequests = useMemo(() => {
     const baseStatuses = [
       'Submitted',
@@ -68,14 +69,12 @@ const MaintenanceRequests = () => {
       'Tenant Approved',
       'Resolved',
     ];
-    if (role === 'finance') {
-      return requests.filter(r => baseStatuses.includes(r.status));
-    } else if (role === 'owner') {
+    if (role === 'finance' || role === 'owner' || role === 'tenant') {
       return requests.filter(r => baseStatuses.includes(r.status));
     } else if (role === 'maintenance') {
-      return requests.filter(r => ['Owner Approved', 'Maintenance Scheduled', 'Tenant Approved', 'Resolved'].includes(r.status));
-    } else if (role === 'tenant') {
-      return requests.filter(r => baseStatuses.includes(r.status));
+      return requests.filter(r =>
+        ['Owner Approved', 'Maintenance Scheduled', 'Tenant Approved', 'Resolved'].includes(r.status)
+      );
     }
     return requests;
   }, [requests, role]);
@@ -83,14 +82,14 @@ const MaintenanceRequests = () => {
   const baseColumns = [
     {
       title: 'Tenant Name',
-      dataIndex: 'full_name', // from backend alias
+      dataIndex: 'full_name', // From tenant join
       key: 'full_name',
       ellipsis: true,
       width: 150,
     },
     {
       title: 'Room',
-      dataIndex: 'roomName', // from backend alias for t.room
+      dataIndex: 'roomName', // From joined rooms table via tenants (alias as roomName)
       key: 'roomName',
       ellipsis: true,
       width: 100,
@@ -102,9 +101,15 @@ const MaintenanceRequests = () => {
       ellipsis: true,
       width: 100,
     },
-
     {
-      title: 'Issue Date',
+      title: 'Building ID',
+      dataIndex: 'building_id',
+      key: 'building_id',
+      ellipsis: true,
+      width: 100,
+    },
+    {
+      title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',
       ellipsis: true,
@@ -157,7 +162,9 @@ const MaintenanceRequests = () => {
             {status}
           </Tag>
           {(['Owner Pending', 'Owner Rejected'].includes(status) && record.reason) && (
-            <div style={{ fontSize: '12px', color: '#555' }}>Reason: {record.reason}</div>
+            <div style={{ fontSize: '12px', color: '#555' }}>
+              Reason: {record.reason}
+            </div>
           )}
         </div>
       );
@@ -166,7 +173,7 @@ const MaintenanceRequests = () => {
 
   baseColumns.push({
     title: 'Tenant Approval',
-    dataIndex: 'tenantApproved', // boolean field from backend
+    dataIndex: 'tenantApproved', // Boolean from backend.
     key: 'tenantApproved',
     ellipsis: true,
     width: 120,
@@ -181,7 +188,11 @@ const MaintenanceRequests = () => {
     render: (_, record) => {
       const actions = [];
       actions.push(
-        <Button type="link" key="view-details" onClick={() => openDetailModal(record)}>
+        <Button
+          type="link"
+          key="view-details"
+          onClick={() => openDetailModal(record)}
+        >
           View Details
         </Button>
       );
@@ -198,7 +209,10 @@ const MaintenanceRequests = () => {
           );
         } else if (record.status === 'Finance Confirmed') {
           actions.push(
-            <span key="finance-confirmed" style={{ color: 'green', fontWeight: 'bold' }}>
+            <span
+              key="finance-confirmed"
+              style={{ color: 'green', fontWeight: 'bold' }}
+            >
               Confirmed
             </span>
           );
@@ -266,7 +280,10 @@ const MaintenanceRequests = () => {
           );
         } else {
           actions.push(
-            <span key="tenant-approved" style={{ color: 'blue', fontWeight: 'bold' }}>
+            <span
+              key="tenant-approved"
+              style={{ color: 'blue', fontWeight: 'bold' }}
+            >
               Approved
             </span>
           );
@@ -468,46 +485,6 @@ const MaintenanceRequests = () => {
         size="small"
         scroll={{ x: 800 }}
       />
-
-      <Modal
-        title={editingRequest ? 'Edit Maintenance Request' : 'Add Maintenance Request'}
-        visible={isModalVisible}
-        onOk={handleModalOk}
-        onCancel={handleModalCancel}
-        width={500}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="tenant_id"
-            label="Tenant ID (used to fetch tenant details)"
-            rules={[{ required: true, message: 'Please enter tenant id' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="stallCode"
-            label="Stall Code"
-            rules={[{ required: true, message: 'Please enter stall code' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="building_id"
-            label="Building ID"
-            rules={[{ required: true, message: 'Please enter building id' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="issueDescription"
-            label="Issue Description"
-            rules={[{ required: true, message: 'Please describe the issue' }]}
-          >
-            <Input.TextArea rows={4} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
       <Modal
         title={
           actionModal.type === 'financeConfirm'
