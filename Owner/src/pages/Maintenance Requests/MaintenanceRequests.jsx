@@ -88,7 +88,7 @@ const MaintenanceRequests = () => {
       width: 150,
     },
     {
-      title: 'Room',
+      title: 'Room No',
       dataIndex: 'roomName', // From joined rooms table via tenants (alias as roomName)
       key: 'roomName',
       ellipsis: true,
@@ -102,14 +102,7 @@ const MaintenanceRequests = () => {
       width: 100,
     },
     {
-      title: 'Building ID',
-      dataIndex: 'building_id',
-      key: 'building_id',
-      ellipsis: true,
-      width: 100,
-    },
-    {
-      title: 'Created At',
+      title: 'Issue Date',
       dataIndex: 'createdAt',
       key: 'createdAt',
       ellipsis: true,
