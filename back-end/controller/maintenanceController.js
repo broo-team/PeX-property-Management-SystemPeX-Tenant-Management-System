@@ -76,6 +76,7 @@ exports.getMaintenanceRequests = async (req, res) => {
   }
 };
 
+
 // Update a maintenance request based on an action type.
 exports.updateMaintenanceRequest = async (req, res) => {
   try {
@@ -143,10 +144,17 @@ exports.updateMaintenanceRequest = async (req, res) => {
         updateParams = [requestId];
         break;
       case "tenantApprove":
-        // New update case to record tenant approval.
-        updateQuery = `UPDATE maintenance_requests 
-                       SET tenantApproved = true, status = 'Tenant Approved' 
-                       WHERE id = ?`;
+        // Check current status; if it's already Resolved, preserve that status.
+        const currentStatus = existingRows[0].status;
+        if (currentStatus === "Resolved") {
+          updateQuery = `UPDATE maintenance_requests 
+                         SET tenantApproved = true 
+                         WHERE id = ?`;
+        } else {
+          updateQuery = `UPDATE maintenance_requests 
+                         SET tenantApproved = true, status = 'Tenant Approved' 
+                         WHERE id = ?`;
+        }
         updateParams = [requestId];
         break;
       default:
