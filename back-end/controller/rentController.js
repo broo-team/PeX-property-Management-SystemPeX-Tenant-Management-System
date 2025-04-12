@@ -1,6 +1,6 @@
-
 // controllers/rentController.js
 const db = require("../db/connection");
+const dayjs = require("dayjs");
 
 // Get all rent bills.
 exports.getBills = async (req, res) => {
@@ -18,8 +18,9 @@ exports.getBills = async (req, res) => {
 // Generate a new rent bill.
 exports.generateBill = async (req, res) => {
   try {
-    // Note: we now accept an optional due_date in the payload.
-    const { tenant_id, bill_date, amount, due_date } = req.body;
+    // Destructure required fields from request body.
+    // Note: We now also accept original_due_date.
+    const { tenant_id, bill_date, amount, due_date, original_due_date } = req.body;
     if (!tenant_id || !bill_date || !amount) {
       return res.status(400).json({ message: "Missing required fields." });
     }
@@ -34,25 +35,36 @@ exports.generateBill = async (req, res) => {
       return res.status(404).json({ message: "Tenant not found." });
     }
 
-    const tenantPaymentTerm = tenantRows[0].payment_term;
+    const tenantPaymentTerm = Number(tenantRows[0].payment_term) || 30;
 
-    // Use the provided due_date if available, otherwise fallback to tenant's rent_end_date.
-    let finalDueDate;
-    if (due_date) {
-      finalDueDate = due_date;
-    } else {
-      const rentEndDate = new Date(tenantRows[0].rent_end_date);
-      finalDueDate = rentEndDate.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+    // If due_date is not provided, calculate it as bill_date + tenantPaymentTerm days.
+    let finalDueDate = due_date;
+    let finalOriginalDueDate = original_due_date;
+    if (!due_date) {
+      finalDueDate = dayjs(bill_date)
+        .add(tenantPaymentTerm, "day")
+        .format("YYYY-MM-DD");
+      finalOriginalDueDate = finalDueDate;
     }
 
     const penalty = 0;
     const payment_status = "pending";
 
+    // Insert the new bill, storing both due_date and original_due_date.
     const [result] = await db.query(
       `INSERT INTO monthly_rent_bills
-        (tenant_id, bill_date, amount, penalty, payment_status, payment_term, due_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [tenant_id, bill_date, amount, penalty, payment_status, tenantPaymentTerm, finalDueDate]
+        (tenant_id, bill_date, amount, penalty, payment_status, payment_term, due_date, original_due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tenant_id,
+        bill_date,
+        amount,
+        penalty,
+        payment_status,
+        tenantPaymentTerm,
+        finalDueDate,
+        finalOriginalDueDate,
+      ]
     );
 
     res.status(201).json({
@@ -64,6 +76,7 @@ exports.generateBill = async (req, res) => {
       payment_status,
       payment_term: tenantPaymentTerm,
       due_date: finalDueDate,
+      original_due_date: finalOriginalDueDate,
     });
   } catch (error) {
     console.error("Error generating bill:", error);
