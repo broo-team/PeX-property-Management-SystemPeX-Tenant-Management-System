@@ -1,0 +1,4 @@
+{"timestamp":"2025-06-14 12:11:13.427","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"4080.00","currency":"ETB","email":"","first_name":"abe","last_name":" ","phone_number":"0911111111","meta":{"tenantId":"09","hide_receipt":"true"}},"meta":{}}
+{"timestamp":"2025-06-14 12:11:16.414","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-7cdcd9c7f709-1749892273461"},"meta":{}}
+{"timestamp":"2025-06-14 12:11:39.984","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-7cdcd9c7f709-1749892273461"},"meta":{}}
+{"timestamp":"2025-06-14 12:11:41.061","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":3,"amountPaid":"4000.00","penaltyPaid":"80.00"},"meta":{}}

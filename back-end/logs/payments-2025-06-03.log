@@ -1,0 +1,2 @@
+{"timestamp":"2025-06-03 13:24:43.022","service":"payment-service","environment":"development","eventType":"INIT_FAILED","level":"error","details":{"message":"No pending bill found"},"meta":{}}
+{"timestamp":"2025-06-03 13:24:42.713","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"45.00","currency":"ETB","email":"","first_name":"abedla","last_name":" ","phone_number":"0911111111","meta":{"tenantId":"66","hide_receipt":"true"}},"meta":{}}

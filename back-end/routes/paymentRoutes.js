@@ -1,21 +1,25 @@
-// src/routes/paymentRoutes.js
+// routes/paymentRoutes.js - Updated
 const express = require('express');
 const router = express.Router();
-const bodyParser = require('body-parser');
 const paymentController = require('../controller/paymentController');
 
-// Route to initialize a new Chapa transaction
+// Remove body-parser - using express.json() from app.js
 router.post('/initialize', paymentController.initializeTransaction);
 
-// Webhook endpoint – uses raw body parser to handle the raw payload
-router.post(
-  '/webhook',
-  bodyParser.raw({ type: 'application/json' }),
-  paymentController.handleWebhook
-);
-
-// Callback endpoints after payment completion or cancellation
+// Webhook handler with proper content type
+router.post('/webhook', (req, res) => {
+  // Content type verification
+  if (req.headers['content-type'] !== 'application/json') {
+    return res.status(400).send('Invalid content type');
+  }
+  paymentController.handleWebhook(req, res);
+});
 router.get('/success', paymentController.handleSuccessCallback);
-router.get('/cancel', paymentController.handleCancelCallback);
+
+// Add bulk verification endpoint
+router.post('/bulk-verify', 
+  // requireAuthMiddleware, // Add your auth middleware
+  paymentController.bulkVerifyPayments
+);
 
 module.exports = router;

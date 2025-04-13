@@ -75,6 +75,7 @@ import { addDays } from "date-fns";
 import "react-day-picker/dist/style.css";
 import PaymentButton from "../payment/PaymentButton";
 import { Maintenance } from "../maintenance/Maintenance";
+import LeasePayments from "../RentAndLease/LeasePayments";
 
 type LeasePayment = {
   _id: string;
@@ -1075,7 +1076,7 @@ export default function Dashboard() {
                     </Card>
                   </div>
                 </TabsContent>
-
+{/* 
                 <TabsContent value="lease">
                   <Card className="bg-white shadow-lg rounded-xl overflow-hidden">
                     <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-500 to-emerald-600">
@@ -1187,7 +1188,12 @@ export default function Dashboard() {
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
+                </TabsContent> */}
+             <TabsContent value="lease">
+              <LeasePayments />
+             </TabsContent>
+                  
+               
 
                 <TabsContent value="electricity">
                   <Card className="bg-white shadow-lg rounded-xl overflow-hidden">

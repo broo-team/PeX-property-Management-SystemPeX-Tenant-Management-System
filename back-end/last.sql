@@ -1,5 +1,21 @@
 
-DROP TABLE IF EXISTS `tenants`;
+
+CREATE TABLE `buildings` (
+  `id` int(11) NOT NULL,
+  `building_name` varchar(255) NOT NULL,
+  `building_image` varchar(255) NOT NULL,
+  `building_address` varchar(255) NOT NULL,
+  `location` varchar(255) NOT NULL,
+  `property_type` enum('Commercial','Residential','Mixed') NOT NULL,
+  `owner_email` varchar(255) NOT NULL,
+  `owner_phone` varchar(50) NOT NULL,
+  `owner_address` varchar(255) NOT NULL,
+  `suspended` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `password` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
 CREATE TABLE `tenants` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `tenant_id` varchar(50) NOT NULL,
@@ -40,7 +56,6 @@ CREATE TABLE `tenants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-DROP TABLE IF EXISTS `stalls`;
 CREATE TABLE `stalls` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `stallCode` varchar(50) NOT NULL,
@@ -53,7 +68,7 @@ CREATE TABLE `stalls` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-DROP TABLE IF EXISTS `rooms`;
+
 CREATE TABLE `rooms` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `building_id` int(11) NOT NULL,
@@ -69,29 +84,28 @@ CREATE TABLE `rooms` (
   FOREIGN KEY (`stall_id`) REFERENCES `stalls`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-DROP TABLE IF EXISTS `monthly_rent_bills`;
 CREATE TABLE `monthly_rent_bills` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `building_id` int(11) NOT NULL,
-  `tenant_id` int(11) DEFAULT NULL,
+  `tenant_id` varchar(50) DEFAULT NULL,
   `bill_date` date NOT NULL,
   `due_date` date NOT NULL,
   `amount` decimal(10,2) NOT NULL,
-  `penalty` decimal(10,2) DEFAULT 0.00,
+  `penalty` decimal(10,2) DEFAULT '0.00',
   `payment_status` enum('pending','submitted','approved','paid') NOT NULL DEFAULT 'pending',
   `payment_proof_url` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `totalDue` decimal(10,2) DEFAULT 0.00,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `totalDue` decimal(10,2) DEFAULT '0.00',
   `payment_term` int(11) DEFAULT NULL,
-  `days_remaining` int(11) DEFAULT 0,
+  `days_remaining` int(11) DEFAULT '0',
   `original_due_date` date DEFAULT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`building_id`) REFERENCES `buildings`(`id`),
-  FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`)
+  FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-DROP TABLE IF EXISTS `tenant_utility_usage`;
+
 CREATE TABLE `tenant_utility_usage` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `building_id` int(11) NOT NULL,
@@ -111,8 +125,6 @@ CREATE TABLE `tenant_utility_usage` (
   FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
-DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `building_id` int(11) NOT NULL,
@@ -127,7 +139,6 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-DROP TABLE IF EXISTS `utility_rates`;
 CREATE TABLE `utility_rates` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `building_id` int(11) NOT NULL,

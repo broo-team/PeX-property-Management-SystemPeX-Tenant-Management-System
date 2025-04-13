@@ -1,0 +1,11 @@
+{"timestamp":"2025-06-07 11:25:54.140","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-2ef4ad7731d0-1749111950464"},"meta":{}}
+{"timestamp":"2025-06-07 11:26:18.219","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-2ef4ad7731d0-1749111950464"},"meta":{}}
+{"timestamp":"2025-06-07 11:26:25.574","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":22},"meta":{}}
+{"timestamp":"2025-06-07 11:30:13.261","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"5000.00","currency":"ETB","email":"","first_name":"seid","last_name":" ","phone_number":"0909090909","meta":{"tenantId":"43","hide_receipt":"true"}},"meta":{}}
+{"timestamp":"2025-06-07 11:30:16.111","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-ebf14826391e-1749285013276"},"meta":{}}
+{"timestamp":"2025-06-07 11:30:37.420","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-ebf14826391e-1749285013276"},"meta":{}}
+{"timestamp":"2025-06-07 11:30:40.386","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":24},"meta":{}}
+{"timestamp":"2025-06-07 16:40:24.728","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"5100.00","currency":"ETB","email":"","first_name":"seid","last_name":" ","phone_number":"0909090909","meta":{"tenantId":"66","hide_receipt":"true"}},"meta":{}}
+{"timestamp":"2025-06-07 16:40:27.108","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-880049fed628-1749303624875"},"meta":{}}
+{"timestamp":"2025-06-07 16:40:40.355","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-880049fed628-1749303624875"},"meta":{}}
+{"timestamp":"2025-06-07 16:40:41.632","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":77},"meta":{}}

@@ -1,0 +1,4 @@
+{"timestamp":"2025-05-15 11:57:40.636","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"4040.00","currency":"ETB","email":"","first_name":"abe","last_name":" ","phone_number":"0911111111","meta":{"tenantId":"09","hide_receipt":"true"}},"meta":{}}
+{"timestamp":"2025-05-15 11:57:41.849","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-efff7564a365-1747299460641"},"meta":{}}
+{"timestamp":"2025-05-15 11:58:03.684","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-efff7564a365-1747299460641"},"meta":{}}
+{"timestamp":"2025-05-15 11:58:05.423","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":2},"meta":{}}
