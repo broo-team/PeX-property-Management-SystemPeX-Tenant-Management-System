@@ -81,13 +81,13 @@ const RentInfo = (props) => {
         const billData = billResponse.data;
         setBillDetails(billData);
 
-        // Find the matching tenant by tenant_id.
+        // ✅ Fix tenant lookup using tenant_id instead of id
         const matchingTenant = tenantResponse.data.find(
-          (t) => Number(t.id) === Number(billData.tenant_id)
+          (t) => Number(t.tenant_id) === Number(billData.tenant_id)
         );
 
         if (matchingTenant) {
-          if (Number(matchingTenant.building_id) !== buildingId) {
+          if (Number(matchingTenant.building_id) !== Number(buildingId)) {
             message.error("This tenant is not registered in your building.");
             setTenant(null);
           } else {
@@ -104,8 +104,7 @@ const RentInfo = (props) => {
     };
 
     fetchData();
-  }, [billId]);
-
+  }, [billId, buildingId]); // ✅ Add buildingId
   if (loading)
     return (
       <div
@@ -144,9 +143,9 @@ const RentInfo = (props) => {
       {/* Navigation / Close Button */}
       {isModal ? (
         <div className="rent-info-nav" style={{ marginBottom: 16 }}>
-          <Button type="primary" onClick={props.onClose}>
+          {/* <Button type="primary" onClick={props.onClose}>
             Close
-          </Button>
+          </Button> */}
         </div>
       ) : (
         <div className="rent-info-nav" style={{ marginBottom: 16 }}>
@@ -353,3 +352,5 @@ const RentInfo = (props) => {
 };
 
 export default RentInfo;
+
+// https://copilot.microsoft.com/chats/T62CWs8XtpwHYUSYh9tQE

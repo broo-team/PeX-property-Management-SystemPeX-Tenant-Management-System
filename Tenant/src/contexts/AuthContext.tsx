@@ -1,5 +1,4 @@
 // contexts/AuthContext.tsx
-
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 interface TenantData {
@@ -9,7 +8,7 @@ interface TenantData {
   phone: string;
   room: string;
   building_id: number;
-  stallCode:number;
+  stallCode: number;
 }
 
 interface BuildingData {
@@ -31,7 +30,7 @@ interface LoginResponse {
   token: string;
   tenant: TenantData;
   building: BuildingData;
-  stallCode:TenantData;
+  stallCode: TenantData;
 }
 
 interface AuthContextType {
@@ -40,7 +39,13 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Extend AuthContextType to include tenantPhone and tenantName
+interface ExtendedAuthContextType extends AuthContextType {
+  tenantPhone: string;
+  tenantName: string;
+}
+
+const AuthContext = createContext<ExtendedAuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -49,7 +54,7 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<LoginResponse | null>(() => {
     const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) as LoginResponse : null;
+    return storedUser ? (JSON.parse(storedUser) as LoginResponse) : null;
   });
 
   const login = (userData: LoginResponse) => {
@@ -65,10 +70,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem("building");
   };
 
-  const value: AuthContextType = {
+  // Compute tenantPhone and tenantName based on the logged-in user.
+  const tenantPhone = user?.tenant?.phone || "";
+  const tenantName  = user?.tenant?.full_name || "";
+
+  const value: ExtendedAuthContextType = {
     user,
     login,
     logout,
+    tenantPhone,
+    tenantName,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
