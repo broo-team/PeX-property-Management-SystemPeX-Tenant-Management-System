@@ -1,66 +1,101 @@
-// pages/payment/PaymentButton.tsx
-
 import React from "react";
+
+interface BillDetails {
+  fullName: string;
+  email: string;
+  roomNo: string;
+  tenantId: number;
+  phone: string;
+}
 
 interface PaymentButtonProps {
   type: string; // e.g., "electricity", "water"
   billId: string;
   amount: number;
   disabled?: boolean;
-  billDetails: Record<string, any>; // You can be more specific with this type
+  billDetails: BillDetails;
+  phone?: string;
   onSuccess?: () => void;
   onError?: (error: any) => void;
 }
+
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+};
 
 const UtilityPayment: React.FC<PaymentButtonProps> = ({
   type,
   billId,
   amount,
-  disabled,
+  disabled = false,
   billDetails,
-  onSuccess,
-  onError,
+  phone = "",
+  onSuccess = () => {},
+  onError = (error) => console.error(error),
 }) => {
-  const handlePayment = () => {
-    if (disabled) {
-      return;
-    }
+  const [isLoading, setIsLoading] = React.useState(false);
 
-    // --- Placeholder for your actual payment integration ---
-    console.log("Initiating payment...", {
-      type,
-      billId,
-      amount,
-      billDetails,
-    });
+  const handlePayment = async () => {
+    if (disabled || isLoading) return;
 
-    // Simulate a successful payment after a short delay
-    setTimeout(() => {
-      console.log("Payment successful for bill ID:", billId);
-      if (onSuccess) {
-        onSuccess();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/payments/utility/initialize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          billId,
+          amount,
+          tenantDetails: billDetails,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to initialize payment");
       }
-    }, 1500);
 
-    // You would replace the setTimeout with your actual payment gateway logic
-    // For example, redirecting to a payment page or calling an API.
+      // Extract the checkout URL from the response
+      const checkoutUrl = data.data?.checkout_url;
 
-    // In a real scenario, you would also handle potential errors and call onError()
-    // if the payment fails.
+      if (!checkoutUrl) {
+        throw new Error("Invalid response: Missing checkout URL");
+      }
+
+      // Open the payment page in a new tab
+      window.open(checkoutUrl, "_blank");
+
+      // Trigger success callback
+      onSuccess();
+    } catch (error) {
+      console.error("Payment initialization error:", error);
+      onError(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <button
       onClick={handlePayment}
-      disabled={disabled}
+      disabled={disabled || isLoading}
+      aria-disabled={disabled || isLoading}
+      aria-label={`Pay ${formatCurrency(amount)}`}
       className={`bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${
-        disabled ? "opacity-50 cursor-not-allowed" : ""
+        disabled || isLoading ? "opacity-50 cursor-not-allowed" : ""
       }`}
     >
-      {disabled ? "Paid" : `Pay ${new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(amount)}`}
+      {isLoading
+        ? "Processing..."
+        : disabled
+        ? "Paid"
+        : `Pay ${formatCurrency(amount)}`}
     </button>
   );
 };

@@ -27,6 +27,7 @@ app.use(express.json({
   }
 }));
 
+
 app.use(login)
 app.use(tenantsRoutes);
 app.use('/api/buildings', buildingRoutes);

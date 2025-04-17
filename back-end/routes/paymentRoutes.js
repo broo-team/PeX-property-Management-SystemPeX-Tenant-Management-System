@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controller/paymentController');
-
+const utilityPaymentController = require("../controller/utilityPaymentController")
 // Remove body-parser - using express.json() from app.js
 router.post('/initialize', paymentController.initializeTransaction);
 
@@ -21,5 +21,10 @@ router.post('/bulk-verify',
   // requireAuthMiddleware, // Add your auth middleware
   paymentController.bulkVerifyPayments
 );
+
+
+// route for utility payments
+router.post('/utility/initialize', utilityPaymentController.initializeUtilityPayment);
+router.get('/utility/success', utilityPaymentController.handleUtilitySuccessCallback);
 
 module.exports = router;

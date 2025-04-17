@@ -149,48 +149,55 @@ export function Login() {
   };
 
   return (
-    <div className="container mx-auto flex items-center justify-center min-h-screen p-4 from-emerald-50 to-emerald-100 bg-gradient-to-r">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            {showForgotPassword ? 'Reset Password' : 'Login'}
+    <div className="min-h-screen bg-gradient-to-tr from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-md bg-gray-800 border border-gray-700 rounded-2xl shadow-lg animate-fade-in-up">
+        <CardHeader className="space-y-2 text-center">
+          <CardTitle className="text-2xl font-semibold tracking-tight text-white">
+            {showForgotPassword ? 'Reset Password' : 'Sign In'}
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-gray-400">
             {showForgotPassword
-              ? 'Enter your email to reset your password'
-              : 'Enter your credentials to access your account'}
+              ? 'Enter your email to reset your password.'
+              : 'Sign in to access your dashboard.'}
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="mb-4 bg-red-900 text-white border-none">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
           {showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
+              <div className="space-y-1">
+                <Label htmlFor="reset-email" className="text-gray-300">Email</Label>
                 <Input
                   id="reset-email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="you@example.com"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
+                  className="bg-gray-700 border-gray-600 focus:ring-emerald-400 text-white"
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+                disabled={isLoading}
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reset Password
+                Send Reset Link
               </Button>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber">Phone Number</Label>
+              <div className="space-y-1">
+                <Label htmlFor="phoneNumber" className="text-gray-300">Phone Number</Label>
                 <Input
                   id="phoneNumber"
                   type="tel"
@@ -198,33 +205,37 @@ export function Login() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   required
-                  className={isPhoneValid ? 'border-green-500' : phoneNumber ? 'border-red-500' : ''}
+                  className={`bg-gray-700 border ${isPhoneValid ? 'border-green-500' : 'border-red-500'} text-white`}
                 />
-                {!isPhoneValid && phoneNumber && (
-                  <p className="text-sm text-red-500">Invalid phone number format</p>
-                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-gray-300">Password</Label>
                 <Input
                   id="password"
                   type="password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="bg-gray-700 border-gray-600 text-white"
                 />
               </div>
-              <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600" disabled={isLoading || !isPhoneValid || !password}>
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+                disabled={isLoading || !isPhoneValid || !password}
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Login
+                Sign In
               </Button>
             </form>
           )}
         </CardContent>
-        <CardFooter>
+
+        <CardFooter className="flex flex-col gap-2">
           <Button
             variant="link"
-            className="w-full text-emerald-500"
+            className="text-emerald-400 hover:text-emerald-300"
             onClick={() => setShowForgotPassword(!showForgotPassword)}
           >
             {showForgotPassword ? 'Back to Login' : 'Forgot Password?'}

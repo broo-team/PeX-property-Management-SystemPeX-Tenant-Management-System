@@ -24,7 +24,7 @@ interface UtilityRecord {
   utility_type: string;
   createdAt: string;
   updatedAt: string;
-  usage:string;
+  usage: string;
 }
 
 interface TenantData {
@@ -32,6 +32,7 @@ interface TenantData {
   tenant_id: number;
   full_name: string;
   roomName: string;
+  phone: string;
   utility_usage?: {
     electricity?: UtilityRecord;
     water?: UtilityRecord;
@@ -45,7 +46,7 @@ const Utility: React.FC = () => {
   const [tenantData, setTenantData] = useState<TenantData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTenantData = async () => {
+  const fetchTenantData = async (): Promise<void> => {
     if (!user?.tenant?.tenant_id) {
       setIsLoading(false);
       return;
@@ -54,41 +55,32 @@ const Utility: React.FC = () => {
     try {
       setIsLoading(true);
 
-      // Fetch tenant data
-      const tenantsRes = await axios.get<TenantData[]>(
-        `${import.meta.env.VITE_API_BASE_URL}/api/tenants`,
-        {
-          params: {
-            tenant_id: user.tenant.tenant_id,
-          },
-        }
-      );
-
-      // Fetch utility usage data
-      const usageRes = await axios.get<UtilityRecord[]>(
-        `${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`
-      );
+      // Fetch tenant and utility data
+      const [tenantsRes, usageRes] = await Promise.all([
+        axios.get<TenantData[]>(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`, {
+          params: { tenant_id: user.tenant.tenant_id },
+        }),
+        axios.get<UtilityRecord[]>(
+          `${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`
+        ),
+      ]);
 
       if (tenantsRes.data && tenantsRes.data.length > 0) {
         const tenant = tenantsRes.data[0];
-
-        // Merge utility usage data
         const usages = usageRes.data.filter(
           (u) => Number(u.tenant_id) === Number(tenant.tenant_id)
         );
-        const utilityRecords = {};
+        const utilityRecords: { [key: string]: UtilityRecord } = {};
         usages.forEach((u) => {
           utilityRecords[u.utility_type] = u;
         });
 
-        setTenantData({
-          ...tenant,
-          utility_usage: utilityRecords,
-        });
+        setTenantData({ ...tenant, utility_usage: utilityRecords });
       } else {
         setTenantData(null);
       }
     } catch (error) {
+      console.error("Error fetching tenant data:", error);
       toast({
         title: "Error",
         description: "Failed to fetch tenant data",
@@ -106,7 +98,7 @@ const Utility: React.FC = () => {
     }
   }, [user?.tenant?.tenant_id]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case "Approved":
         return "bg-green-200 text-green-800";
@@ -119,10 +111,10 @@ const Utility: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD", // Adjust to your currency
+      currency: "USD",
     }).format(amount);
   };
 
@@ -170,21 +162,25 @@ const Utility: React.FC = () => {
                       <div>
                         <p className="text-sm text-gray-500">Billing Date</p>
                         <p className="text-lg font-semibold">
-      {dayjs(usage?.bill_date).isValid() ? dayjs(usage.bill_date).format("YYYY-MM-DD") : 'N/A'}
-    </p>
+                          {dayjs(usage?.bill_date).isValid()
+                            ? dayjs(usage.bill_date).format("YYYY-MM-DD")
+                            : "N/A"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Due Date</p>
                         <p className="text-lg font-semibold">
-      {dayjs(usage?.due_date).isValid() ? dayjs(usage.due_date).format("YYYY-MM-DD") : 'N/A'}
-    </p>
+                          {dayjs(usage?.due_date).isValid()
+                            ? dayjs(usage.due_date).format("YYYY-MM-DD")
+                            : "N/A"}
+                        </p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Previous Reading</p>
                         <p className="text-base font-medium">
-                          {usage?.previous_reading !== undefined ? usage.previous_reading : 'N/A'}
+                          {usage?.previous_reading !== undefined ? usage.previous_reading : "N/A"}
                         </p>
                       </div>
                       <div>
@@ -197,7 +193,7 @@ const Utility: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-500">Amount Due</p>
                       <p className="text-2xl font-bold text-emerald-600">
-                        {usage?.cost !== undefined ? formatCurrency(usage.cost) : 'N/A'}
+                        {usage?.cost !== undefined ? formatCurrency(usage.cost) : "N/A"}
                       </p>
                     </div>
                     <div className="flex justify-end mt-4">
@@ -211,10 +207,11 @@ const Utility: React.FC = () => {
                             fullName: tenantData?.full_name || "",
                             email: user?.tenant?.email || "",
                             roomNo: tenantData?.roomName || "",
-                            tenantId: tenantData?.tenant_id
+                            tenantId: tenantData?.tenant_id,
+                            phone: user?.tenant?.phone || "",
                           }}
                           onSuccess={() => {
-                            fetchTenantData(); // Refresh data after payment
+                            fetchTenantData();
                             toast({
                               title: "Success",
                               description: "Payment initiated successfully",

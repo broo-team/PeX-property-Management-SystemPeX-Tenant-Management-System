@@ -45,11 +45,12 @@ const Payments = () => {
     try {
       setLoading(true);
       // Update overdue penalties before fetching data.
-      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/updatePenalties`);
+   
       const [tenantsRes, usageRes, roomsRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`),
         axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`),
         axios.get(`${import.meta.env.VITE_API_BASE_URL}/stalls/getRooms`),
+        axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/updatePenalties`),
       ]);
       const rooms = roomsRes.data.flat();
       // Merge tenants with their latest utility usage (by bill_date)

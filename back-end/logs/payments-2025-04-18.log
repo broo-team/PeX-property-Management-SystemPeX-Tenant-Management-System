@@ -1,0 +1,4 @@
+{"timestamp":"2025-04-18 01:54:49.739","service":"payment-service","environment":"development","eventType":"INIT_START","level":"info","details":{"amount":"5500.00","currency":"ETB","email":"","first_name":"seid","last_name":" ","phone_number":"0909090909","meta":{"tenantId":"09","hide_receipt":"true"}},"meta":{}}
+{"timestamp":"2025-04-18 01:54:50.628","service":"payment-service","environment":"development","eventType":"INIT_SUCCESS","level":"info","details":{"tx_ref":"tx-1d9dd9ac15f2-1744930489748"},"meta":{}}
+{"timestamp":"2025-04-18 01:55:09.982","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"tx-1d9dd9ac15f2-1744930489748"},"meta":{}}
+{"timestamp":"2025-04-18 01:55:11.203","service":"payment-service","environment":"development","eventType":"VERIFY_SUCCESS","level":"info","details":{"billId":12,"amountPaid":"5000.00","penaltyPaid":"500.00"},"meta":{}}

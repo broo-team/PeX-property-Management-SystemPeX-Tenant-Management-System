@@ -1,0 +1,30 @@
+{"timestamp":"2025-04-17 13:00:11.419","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-20250417125846"},"meta":{}}
+{"timestamp":"2025-04-17 13:08:54.878","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-20250417130844"},"meta":{}}
+{"timestamp":"2025-04-17 13:13:54.537","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-20250417131342"},"meta":{}}
+{"timestamp":"2025-04-17 13:55:45.341","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744887286709"},"meta":{}}
+{"timestamp":"2025-04-17 14:00:03.307","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744887573842"},"meta":{}}
+{"timestamp":"2025-04-17 14:05:14.761","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744887891242"},"meta":{}}
+{"timestamp":"2025-04-17 14:10:37.112","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744888196470"},"meta":{}}
+{"timestamp":"2025-04-17 14:21:35.023","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744888835557"},"meta":{}}
+{"timestamp":"2025-04-17 14:32:18.421","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744889508474"},"meta":{}}
+{"timestamp":"2025-04-17 14:36:49.552","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744889735860"},"meta":{}}
+{"timestamp":"2025-04-17 14:37:10.244","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744889735860"},"meta":{}}
+{"timestamp":"2025-04-17 14:57:47.746","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744891038713"},"meta":{}}
+{"timestamp":"2025-04-17 15:01:55.545","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744891290495"},"meta":{}}
+{"timestamp":"2025-04-17 15:12:22.125","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744891876862"},"meta":{}}
+{"timestamp":"2025-04-17 15:22:01.282","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744892481815"},"meta":{}}
+{"timestamp":"2025-04-17 15:51:03.546","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744894233733"},"meta":{}}
+{"timestamp":"2025-04-17 15:58:09.059","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744894634235"},"meta":{}}
+{"timestamp":"2025-04-17 16:03:37.258","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744894897826"},"meta":{}}
+{"timestamp":"2025-04-17 16:04:27.328","service":"payment-service","environment":"development","eventType":"WEBHOOK_RECEIVED","level":"info","meta":{}}
+{"timestamp":"2025-04-17 16:04:27.372","service":"payment-service","environment":"development","eventType":"WEBHOOK_ERROR","level":"error","details":{"message":"The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"},"meta":{}}
+{"timestamp":"2025-04-17 16:04:28.376","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744895058634"},"meta":{}}
+{"timestamp":"2025-04-17 16:09:31.208","service":"payment-service","environment":"development","eventType":"WEBHOOK_RECEIVED","level":"info","meta":{}}
+{"timestamp":"2025-04-17 16:09:31.212","service":"payment-service","environment":"development","eventType":"WEBHOOK_ERROR","level":"error","details":{"message":"The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"},"meta":{}}
+{"timestamp":"2025-04-17 16:09:32.266","service":"payment-service","environment":"development","eventType":"WEBHOOK_RECEIVED","level":"info","meta":{}}
+{"timestamp":"2025-04-17 16:09:32.273","service":"payment-service","environment":"development","eventType":"WEBHOOK_ERROR","level":"error","details":{"message":"The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"},"meta":{}}
+{"timestamp":"2025-04-17 16:14:16.688","service":"payment-service","environment":"development","eventType":"WEBHOOK_RECEIVED","level":"info","meta":{}}
+{"timestamp":"2025-04-17 16:14:16.726","service":"payment-service","environment":"development","eventType":"WEBHOOK_ERROR","level":"error","details":{"message":"The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"},"meta":{}}
+{"timestamp":"2025-04-17 16:14:17.750","service":"payment-service","environment":"development","eventType":"WEBHOOK_RECEIVED","level":"info","meta":{}}
+{"timestamp":"2025-04-17 16:14:17.755","service":"payment-service","environment":"development","eventType":"WEBHOOK_ERROR","level":"error","details":{"message":"The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"},"meta":{}}
+{"timestamp":"2025-04-17 17:06:43.927","service":"payment-service","environment":"development","eventType":"VERIFY_START","level":"info","details":{"tx_ref":"UTIL-29-1744898782978"},"meta":{}}
