@@ -9,6 +9,8 @@ interface TenantData {
   room: string;
   building_id: number;
   stallCode: number;
+  roomName: string;
+  email: string;
 }
 
 interface BuildingData {
