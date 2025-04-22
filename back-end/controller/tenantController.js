@@ -303,6 +303,7 @@ exports.getTenants = async (req, res) => {
         tenant.created_at,
         tenant.rent_start_date,
         tenant.rent_end_date,
+        tenant.password,
         IFNULL(rooms.monthlyRent, 0) AS monthlyRent,
         IFNULL(electricity.last_reading, 0) AS last_eeu_reading,
         IFNULL(water_usage.last_reading, 0) AS last_water_reading,
