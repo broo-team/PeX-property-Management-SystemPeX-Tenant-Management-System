@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [accountType, setAccountType] = useState(null); // "owner" or "user"
   const [token, setToken] = useState(null);
   const [buildingId, setBuildingId] = useState(null);
+  const [buildingName, setBuildingName] = useState(null); // ✅ New state for building name
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
@@ -45,10 +46,11 @@ export const AuthProvider = ({ children }) => {
       setAccountType(type);
       setToken(storedToken);
 
-      // ✅ Use correct building ID logic
-      const id =
-        type === "owner" ? parsedAccount.id : parsedAccount.building_id;
+      const id = type === "owner" ? parsedAccount.id : parsedAccount.building_id;
+      const name = type === "owner" ? parsedAccount.name : parsedAccount.building_name;
+
       setBuildingId(id);
+      setBuildingName(name); // ✅ Set building name
     }
 
     setAuthLoading(false);
@@ -59,9 +61,11 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
     setAccountType(type);
 
-    // ✅ Use correct building ID logic
     const id = type === "owner" ? accountData.id : accountData.building_id;
+    const name = type === "owner" ? accountData.building_name : accountData.building_name;
+
     setBuildingId(id);
+    setBuildingName(name); // ✅ Set building name
 
     if (type === "owner") {
       localStorage.setItem("owner", JSON.stringify(accountData));
@@ -74,6 +78,7 @@ export const AuthProvider = ({ children }) => {
 
     console.log("Login successful, account set:", accountData, type);
     console.log("Building ID set:", id);
+    console.log("Building Name set:", name); // ✅ Log building name
   };
 
   const logout = () => {
@@ -85,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
       setAccountType(null);
       setBuildingId(null);
+      setBuildingName(null); // ✅ Clear building name
 
       localStorage.removeItem("owner");
       localStorage.removeItem("user");
@@ -107,6 +113,7 @@ export const AuthProvider = ({ children }) => {
         role,
         token,
         buildingId,
+        buildingName, // ✅ Provide building name
         authLoading,
         login,
         logout,

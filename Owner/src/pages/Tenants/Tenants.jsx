@@ -43,7 +43,7 @@ const Tenants = () => {
   // const [selectedStall, setSelectedStall] = useState(null); // This state variable is not used
   const [availableRooms, setAvailableRooms] = useState([]); // Available rooms filtered by stall and occupancy
   const [selectedStallId, setSelectedStallId] = useState(null);
-
+const [newTenantId, setNewTenantId] = useState('');
   const { account, accountType, authLoading, buildingId} = useAuth();
   const owner = accountType === "owner" ? account : null;
 
@@ -136,10 +136,14 @@ useEffect(() => {
   }
 
   // Exclude rooms occupied by OTHER active tenants in the current building
-  const occupiedRoomIdsInCurrentBuilding = allTenants
-  .filter(tenant => tenant.terminated === 0 && Number(tenant.building_id) === buildingId && tenant.id !== editingTenantId)
-  .map(tenant => tenant.room);
-
+// In the Tenants component's useEffect for availableRooms:
+const occupiedRoomIdsInCurrentBuilding = allTenants
+  .filter(tenant => 
+    tenant.terminated === 0 && 
+    Number(tenant.building_id) === buildingId && 
+    tenant.id !== editingTenantId
+  )
+  .map(tenant => Number(tenant.room)); // Convert to number here
   const available = filteredRooms.filter((room) =>
     !occupiedRoomIdsInCurrentBuilding.includes(room.id)
   );
@@ -186,8 +190,12 @@ useEffect(() => {
     const fetchAllData = async () => {
         try {
             // Fetch all tenants (active and terminated if endpoint supports it, otherwise use separate)
-            const tenantsResponse = await axios.get("http://localhost:5000/api/tenants");
-            setAllTenants(tenantsResponse.data);
+            // When fetching tenants:
+const tenantsResponse = await axios.get("http://localhost:5000/api/tenants");
+setAllTenants(tenantsResponse.data.map(tenant => ({
+  ...tenant,
+  room: Number(tenant.room) // Convert to number on fetch
+})));
 
             // Fetch all terminated tenants (assuming this endpoint returns all terminated regardless of building)
             const terminatedResponse = await axios.get("http://localhost:5000/api/tenants/terminated");
@@ -279,29 +287,64 @@ const fetchTenants = async () => {
   // The useEffect for fetching all stalls and rooms is now the primary source for this data.
   // We don't need separate fetchRooms and fetchStalls functions called directly in useEffects
   // unless you need to manually trigger a refetch of everything.
+ // make sure to import correctly
+ const { buildingName } = useAuth()
+ const showModal = () => {
+// retrieve the building name from the context
 
-  const showModal = () => {
-    setIsModalVisible(true);
-    setActiveTab("1");
-    form.resetFields();
-    setIsAgentRegistered(false);
-    setEditingTenantId(null); // Ensure editing state is reset for new tenant
-    setSelectedStallId(null); // Reset selected stall
-    setAvailableRooms([]); // Clear available rooms until stall is selected
-    setMonthlyRent(0); // Reset monthly rent
-    setDeposit(0); // Reset deposit
-    setTotalAmount(0); // Reset total amount
-    setContractEndDate(null); // Reset dates
-    setRentEndDate(null); // Reset dates
-     // Reset checkbox initial values
-    form.setFieldsValue({
-      eeu_payment: false,
-      generator_payment: false,
-      water_payment: false,
-      registered_by_agent: false,
-    });
-  };
-
+   // Log the building name to check if it's coming correctly
+   console.log("Building Name:", buildingName);
+ 
+   setIsModalVisible(true);
+   setActiveTab("1");
+   form.resetFields();
+   setIsAgentRegistered(false);
+   setEditingTenantId(null);
+   setSelectedStallId(null);
+   setAvailableRooms([]);
+   setMonthlyRent(0);
+   setDeposit(0);
+   setTotalAmount(0);
+   setContractEndDate(null);
+   setRentEndDate(null);
+ 
+   // ✅ Generate abbreviation: "New Sunset Apartments" → "NSA"
+   const getBuildingCode = (name) => {
+     if (!name) return "DEF"; // Default code if building name is empty
+     return name
+       .split(" ") // Split by space to handle multiple words
+       .map(word => word[0]?.toUpperCase()) // Take the first letter and make it uppercase
+       .join(""); // Join the letters together
+   };
+ 
+   const buildingCode = getBuildingCode(buildingName); // Get building code like "NSA" for "New Sunset Apartments"
+   
+   // Log the generated building code to verify if it's correct
+   console.log("Building Code:", buildingCode);
+ 
+   // ✅ Generate a new unique tenant ID using the building code
+   const existingIds = allTenants.map(t => t.tenant_id);
+   const numbers = existingIds
+     .map(id => id?.match(new RegExp(`${buildingCode}-(\\d+)`))?.[1])
+     .map(Number)
+     .filter(n => !isNaN(n));
+ 
+   const nextNumber = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+   const generatedId = `${buildingCode}-${nextNumber}`;
+ 
+   // Log the generated ID
+   console.log("Generated ID:", generatedId);
+ 
+   setNewTenantId(generatedId); // update state
+   form.setFieldsValue({ tenant_id: generatedId }); // update form field
+ };
+ 
+  useEffect(() => {
+    if (isModalVisible && newTenantId) {
+      form.setFieldsValue({ tenant_id: newTenantId });
+    }
+  }, [isModalVisible, newTenantId, form]);
+  
   const handleCancel = () => {
     setIsModalVisible(false);
     form.resetFields();
@@ -313,6 +356,7 @@ const fetchTenants = async () => {
     setTotalAmount(0); // Reset total amount
     setContractEndDate(null); // Reset dates
     setRentEndDate(null); // Reset dates
+    setNewTenantId('');
   };
 
   useEffect(() => {
@@ -607,9 +651,14 @@ useEffect(() => {
           <Tabs activeKey={activeTab} onChange={setActiveTab}>
             <TabPane tab="Tenant Info" key="1">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
-                <Form.Item name="tenant_id" label="Tenant ID" rules={[{ required: true, message: "Please enter Tenant ID" }]}>
-                  <Input />
-                </Form.Item>
+                <Form.Item 
+  name="tenant_id" 
+  label="Tenant ID" 
+  rules={[{ required: true, message: "Auto-generated ID" }]}
+>
+  <Input value={newTenantId} disabled />
+</Form.Item>
+
                 <Form.Item name="organization" label="Organization">
                   <Input />
                 </Form.Item>
