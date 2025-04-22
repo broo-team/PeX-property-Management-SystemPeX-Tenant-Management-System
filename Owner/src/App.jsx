@@ -118,16 +118,16 @@ const App = () => {
                         </Link>
                       ),
                     },
+                    // {
+                    //   key: '4',
+                    //   label: (
+                    //     <Link to={'/lease-agreements'}>
+                    //       <FaRegNewspaper /> Lease Agreements
+                    //     </Link>
+                    //   ),
+                    // },
                     {
                       key: '4',
-                      label: (
-                        <Link to={'/lease-agreements'}>
-                          <FaRegNewspaper /> Lease Agreements
-                        </Link>
-                      ),
-                    },
-                    {
-                      key: '5',
                       label: (
                         <Link to={'/payments'}>
                           <TbZoomMoney /> Payments
@@ -135,23 +135,23 @@ const App = () => {
                       ),
                     },
                     {
-                      key: '6',
+                      key: '5',
                       label: (
                         <Link to={'/maintenance-requests'}>
                           <GrHostMaintenance /> Maintenance Requests
                         </Link>
                       ),
                     },
+                    // {
+                    //   key: '7',
+                    //   label: (
+                    //     <Link to={'/reminders-notifications'}>
+                    //       <IoNotifications /> Reminders And Notifications
+                    //     </Link>
+                    //   ),
+                    // },
                     {
-                      key: '7',
-                      label: (
-                        <Link to={'/reminders-notifications'}>
-                          <IoNotifications /> Reminders And Notifications
-                        </Link>
-                      ),
-                    },
-                    {
-                      key: '8',
+                      key: '6',
                       label: (
                         <Link to={'/reports'}>
                           <HiOutlineDocumentReport /> Reports

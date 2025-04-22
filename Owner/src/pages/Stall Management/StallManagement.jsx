@@ -20,10 +20,9 @@ const { TabPane } = Tabs;
 const { Option } = Select;
 
 const StallManagement = () => {
-  const { account, accountType, authLoading } = useAuth();
+  const { account, accountType, buildingId, authLoading } = useAuth();
   const owner = accountType === "owner" ? account : null;
   // Define the building ID for which data should be shown.
-  const buildingId = 3;
 
   // Form instances for stall create/edit and room create/edit
   const [stallForm] = Form.useForm();

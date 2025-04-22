@@ -7,8 +7,9 @@ export const AuthProvider = ({ children }) => {
   const [account, setAccount] = useState(null);
   const [accountType, setAccountType] = useState(null); // "owner" or "user"
   const [token, setToken] = useState(null);
+  const [buildingId, setBuildingId] = useState(null); // ✅ Corrected logic
   const [authLoading, setAuthLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // Prevent multiple clicks
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,25 +17,37 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("ERPUSER_Token");
 
+    let parsedAccount = null;
+    let type = null;
+
     if (storedOwner && storedToken) {
       try {
-        setAccount(JSON.parse(storedOwner));
-        setAccountType("owner");
-        setToken(storedToken);
+        parsedAccount = JSON.parse(storedOwner);
+        type = "owner";
       } catch (error) {
+        console.error("Failed to parse stored owner:", error);
         localStorage.removeItem("owner");
         localStorage.removeItem("ERPUSER_Token");
       }
     } else if (storedUser && storedToken) {
       try {
-        setAccount(JSON.parse(storedUser));
-        setAccountType("user");
-        setToken(storedToken);
+        parsedAccount = JSON.parse(storedUser);
+        type = "user";
       } catch (error) {
+        console.error("Failed to parse stored user:", error);
         localStorage.removeItem("user");
         localStorage.removeItem("ERPUSER_Token");
       }
     }
+
+    if (parsedAccount && type) {
+      setAccount(parsedAccount);
+      setAccountType(type);
+      setToken(storedToken);
+      // ✅ Updated to prioritize building_id
+      setBuildingId(parsedAccount.building_id || null);
+    }
+
     setAuthLoading(false);
   }, []);
 
@@ -42,6 +55,9 @@ export const AuthProvider = ({ children }) => {
     setAccount(accountData);
     setToken(authToken);
     setAccountType(type);
+    // ✅ Updated to prioritize building_id
+    setBuildingId(accountData.building_id || null);
+
     if (type === "owner") {
       localStorage.setItem("owner", JSON.stringify(accountData));
       localStorage.removeItem("user");
@@ -49,18 +65,23 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(accountData));
       localStorage.removeItem("owner");
     }
+
     localStorage.setItem("ERPUSER_Token", authToken);
+
     console.log("Login successful, account set:", accountData, type);
+    console.log("Building ID set:", accountData.building_id);
   };
 
   const logout = () => {
-    if (isLoggingOut) return; // Prevent multiple clicks
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
 
     requestAnimationFrame(() => {
       setAccount(null);
       setToken(null);
       setAccountType(null);
+      setBuildingId(null);
+
       localStorage.removeItem("owner");
       localStorage.removeItem("user");
       localStorage.removeItem("ERPUSER_Token");
@@ -72,11 +93,21 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const role = accountType === "user" ? account?.role : accountType;
+  const role = accountType === "owner" ? "owner" : account?.role;
 
   return (
     <AuthContext.Provider
-      value={{ account, accountType, role, token, authLoading, login, logout, isLoggingOut }}
+      value={{
+        account,
+        accountType,
+        role,
+        token,
+        buildingId, // ✅ Building ID now works for both user and owner
+        authLoading,
+        login,
+        logout,
+        isLoggingOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
