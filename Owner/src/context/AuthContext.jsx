@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [account, setAccount] = useState(null);
   const [accountType, setAccountType] = useState(null); // "owner" or "user"
   const [token, setToken] = useState(null);
-  const [buildingId, setBuildingId] = useState(null); // ✅ Corrected logic
+  const [buildingId, setBuildingId] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
@@ -44,8 +44,11 @@ export const AuthProvider = ({ children }) => {
       setAccount(parsedAccount);
       setAccountType(type);
       setToken(storedToken);
-      // ✅ Updated to prioritize building_id
-      setBuildingId(parsedAccount.building_id || null);
+
+      // ✅ Use correct building ID logic
+      const id =
+        type === "owner" ? parsedAccount.id : parsedAccount.building_id;
+      setBuildingId(id);
     }
 
     setAuthLoading(false);
@@ -55,8 +58,10 @@ export const AuthProvider = ({ children }) => {
     setAccount(accountData);
     setToken(authToken);
     setAccountType(type);
-    // ✅ Updated to prioritize building_id
-    setBuildingId(accountData.building_id || null);
+
+    // ✅ Use correct building ID logic
+    const id = type === "owner" ? accountData.id : accountData.building_id;
+    setBuildingId(id);
 
     if (type === "owner") {
       localStorage.setItem("owner", JSON.stringify(accountData));
@@ -65,11 +70,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(accountData));
       localStorage.removeItem("owner");
     }
-
     localStorage.setItem("ERPUSER_Token", authToken);
 
     console.log("Login successful, account set:", accountData, type);
-    console.log("Building ID set:", accountData.building_id);
+    console.log("Building ID set:", id);
   };
 
   const logout = () => {
@@ -102,7 +106,7 @@ export const AuthProvider = ({ children }) => {
         accountType,
         role,
         token,
-        buildingId, // ✅ Building ID now works for both user and owner
+        buildingId,
         authLoading,
         login,
         logout,
