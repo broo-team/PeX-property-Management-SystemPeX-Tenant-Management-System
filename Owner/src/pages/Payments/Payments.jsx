@@ -172,21 +172,28 @@ const Payments = () => {
   // ---------------------------
   // Pre-populate the Utility Modal's previous reading fields.
   // ---------------------------
-  useEffect(() => {
-    if (selectedTenant && selectedTenant.utility_usage) {
-      const fields = {};
-      utilityTypes.forEach(({ key, paymentField }) => {
-        if (selectedTenant[paymentField] && selectedTenant.utility_usage[key]) {
-          fields[`${key}_previous`] = Number(selectedTenant.utility_usage[key].current_reading);
-        } else if (selectedTenant[paymentField]) {
-             // Handle case where tenant pays for utility but has no previous usage record yet
-              fields[`${key}_previous`] = Number(selectedTenant[`last_${key}_reading`] || 0);
+// In the useEffect for pre-populating the utility modal's previous readings
+// In the useEffect for pre-populating the utility modal's previous readings
+useEffect(() => {
+    if (selectedTenant && selectedTenant.utility_usage) {
+      const fields = {};
+      utilityTypes.forEach(({ key, paymentField }) => {
+        if (selectedTenant[paymentField] && selectedTenant.utility_usage[key]) {
+          fields[`${key}_previous`] = Number(selectedTenant.utility_usage[key].current_reading);
+        } else if (selectedTenant[paymentField]) {
+          // Use room's initial values for first-time readings
+          let initialValue = 0;
+          if (key === "electricity") {
+            initialValue = selectedTenant.room?.eeuReader || 0; // Use room's eeuReader
+          } else if (key === "water") {
+            initialValue = selectedTenant.room?.water_reader || 0; // Use room's water_reader
           }
-      });
-      form.setFieldsValue(fields);
-    }
-  }, [selectedTenant, form]);
-
+          fields[`${key}_previous`] = Number(initialValue);
+        }
+      });
+      form.setFieldsValue(fields);
+    }
+  }, [selectedTenant, form]);
   // ---------------------------
   // Mark tenant's regular payment as paid.
   // Note: This endpoint likely operates on tenantId, which implicitly links to building.

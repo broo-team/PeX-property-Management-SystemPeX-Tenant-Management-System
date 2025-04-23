@@ -553,7 +553,7 @@ useEffect(() => {
       ...record,
       stallCode: roomObject?.stall_id || null, // Map to stallCode (stall ID)
       room: roomObject?.id || null,             // Set room ID (not the whole object)
-      monthlyRent: record.monthly_rent ? Number(record.monthly_rent) : 0,
+      monthlyRent: record.monthlyRent ? Number(record.monthlyRent) : 0,
       payment_term: record.payment_term ? Number(record.payment_term) : 30,
       rentStartDate: record.rent_start_date ? dayjs(record.rent_start_date) : dayjs(), // Use rent_start_date from backend
       contractStartDate: record.lease_start ? dayjs(record.lease_start) : dayjs(),
@@ -569,7 +569,7 @@ useEffect(() => {
     });
 
     // Update state variables as well
-    setMonthlyRent(record.monthly_rent ? Number(record.monthly_rent) : 0);
+    setMonthlyRent(record.monthlyrent ? Number(record.monthlyRent) : 0);
     setDeposit(record.deposit ? Number(record.deposit) : 0);
     setIsAgentRegistered(record.registered_by_agent === 1); // Set agent registered state
 

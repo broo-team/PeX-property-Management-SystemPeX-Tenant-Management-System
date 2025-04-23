@@ -25,7 +25,7 @@ function TenantInfo() {
   const [tenant, setTenant] = useState(null);
   const [building, setBuilding] = useState(null);
   const [loading, setLoading] = useState(true);
-  const buildingId = 3;
+
   useEffect(() => {
     const fetchTenant = async () => {
       try {
