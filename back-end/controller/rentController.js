@@ -113,8 +113,7 @@ exports.submitPaymentProof = async (req, res) => {
     res.status(500).json({ message: "Server error while submitting payment proof." });
   }
 };
-
-// Approve a payment with early payment credit handling.
+// Approve a payment with early payment adjustment.
 exports.approvePayment = async (req, res) => {
   try {
     const billId = req.params.id;
@@ -132,24 +131,19 @@ exports.approvePayment = async (req, res) => {
     const now = moment();
     const dueDateMoment = moment(due_date, "YYYY-MM-DD HH:mm:ss");
 
-    let newCycle; // the number of days to add for the new cycle
-
+    let newCycle;
     if (now.isBefore(dueDateMoment)) {
-      // Early payment: tenant pays before the due date.
-      // Calculate the remaining days until the original due date.
-      const remainingDays = dueDateMoment.diff(now, "days");
-      // The new cycle equals the full payment term plus the remaining days.
-      newCycle = payment_term + remainingDays;
+      // Early payment: simply use the standard payment term.
+      newCycle = payment_term;
     } else {
-      // On-time or late payment.
+      // On-time or late payment: subtract overdue days.
       const overdueDays = now.diff(dueDateMoment, "days");
       newCycle = payment_term - overdueDays;
-      // Safety: do not allow negative cycle length.
       if (newCycle < 0) newCycle = 0;
     }
 
+    // Set new bill date and new due date.
     const newBillDate = now.format("YYYY-MM-DD");
-    // New due date is now + newCycle days; using endOf("day") so that it lasts the full day.
     const newDueDate = now
       .clone()
       .add(newCycle, "days")
