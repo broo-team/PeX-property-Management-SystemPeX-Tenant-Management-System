@@ -206,11 +206,11 @@ exports.getStalls = async (req, res) => {
 // Update stall details (for example, stallCode and building_id)
 exports.updateStallDetails = async (req, res) => {
   const stallId = req.params.stallId;
-  const { stallCode, building_id } = req.body;
+  const { stallCode,floorsize, building_id } = req.body;
 
-  const query = "UPDATE stalls SET stallCode = ?, building_id = ? WHERE id = ?";
+  const query = "UPDATE stalls SET stallCode = ?, floorsize = ?, building_id = ? WHERE id = ?";
   try {
-    const [result] = await db.query(query, [stallCode, building_id, stallId]);
+    const [result] = await db.query(query, [stallCode,floorsize, building_id, stallId]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Stall not found' });
     }

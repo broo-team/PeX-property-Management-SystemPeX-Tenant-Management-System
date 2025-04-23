@@ -1,66 +1,83 @@
 // controllers/tenantController.js
 const db = require('../db/connection');
 
+
 exports.createTenant = async (req, res) => {
+  console.log("REQUEST BODY:", req.body);
+
   const {
-      tenantID,
-      fullName,
-      sex,
-      phone,
-      city,
-      subcity,
-      woreda,
-      house_no,
-      room,
-      price,
-      paymentTerm,
-      deposit,
-      rentStart,
-      rentEnd,
-      lease_start, // Changed from leasePeriod
-      lease_end,   // Changed from leasePeriod
-      eeuPayment,
-      generatorPayment,
-      waterPayment,
-      registeredByAgent,
-      authenticationNo,
-      agentFirstName,
-      agentSex,
-      agentPhone,
-      agentCity,
-      agentSubcity,
-      agentWoreda,
-      agentHouseNo,
-      building_id
+    tenantID,
+    fullName,
+    sex,
+    phone,
+    city,
+    subcity,
+    woreda,
+    house_no,
+    room, // room id selected by the tenant
+    price,
+    paymentTerm,
+    deposit,
+    rentStart,
+    rentEnd,
+    lease_start, // lease start date
+    lease_end,   // lease end date
+    eeuPayment,
+    generatorPayment,
+    waterPayment,
+    registeredByAgent,
+    authenticationNo,
+    agentFirstName,
+    agentSex,
+    agentPhone,
+    agentCity,
+    agentSubcity,
+    agentWoreda,
+    agentHouseNo,
+    building_id
   } = req.body;
 
-  if (!tenantID || !fullName || !sex || !phone || !room || !lease_start || !lease_end || !building_id || !rentStart || !rentEnd) {
-      return res.status(400).json({
-          error:
-              'Missing required fields. Ensure tenantID, fullName, sex, phone, room, lease_start, lease_end, and building_id are provided.'
-      });
+  // Validate required fields.
+  if (
+    !tenantID ||
+    !fullName ||
+    !sex ||
+    !phone ||
+    !room ||
+    !lease_start ||
+    !lease_end ||
+    !building_id ||
+    !rentStart ||
+    !rentEnd
+  ) {
+    return res.status(400).json({
+      error:
+        'Missing required fields. Ensure tenantID, fullName, sex, phone, room, lease_start, lease_end, building_id, rentStart, and rentEnd are provided.'
+    });
   }
 
-  // Removed leasePeriod array validation
-
-  // Check if the room is already taken by another active tenant in the same building.
-  const roomQuery = "SELECT id FROM tenants WHERE room = ? AND building_id = ? AND `terminated` = false";
   try {
-      const [existing] = await db.query(roomQuery, [room, building_id]);
-      if (existing.length > 0) {
-          return res.status(400).json({ error: "Room has already been taken by another tenant." });
-      }
-  } catch (err) {
-      console.error("Error checking room availability:", err);
-      return res.status(500).json({ error: "Internal server error while checking room availability." });
-  }
+    // 1. Check the availability of the room using the status column.
+    const roomQuery = "SELECT status FROM rooms WHERE id = ?";
+    const [rooms] = await db.query(roomQuery, [room]);
+    console.log("ROOM Query Result:", rooms);
 
-  const query = `
+    if (rooms.length === 0) {
+      return res.status(404).json({ error: "Room not found." });
+    }
+
+    // Assuming the room is available if status is not "taken"
+    if (rooms[0].status && rooms[0].status.toLowerCase() === "taken") {
+      return res.status(400).json({ error: "Room is already occupied." });
+    }
+
+    // 2. Insert the tenant record into the tenants table.
+    const tenantInsertQuery = `
       INSERT INTO tenants 
-          (tenant_id, full_name, sex, phone, city, subcity, woreda, house_no, room, price, payment_term, deposit, lease_start, lease_end, registered_by_agent, authentication_no, agent_first_name, agent_sex, agent_phone, agent_city, agent_subcity, agent_woreda, agent_house_no,rent_start_date, rent_end_date, eeu_payment, generator_payment, water_payment, building_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)
-  `;
-  const values = [
+        (tenant_id, full_name, sex, phone, city, subcity, woreda, house_no, room, price, payment_term, deposit, lease_start, lease_end, registered_by_agent, authentication_no, agent_first_name, agent_sex, agent_phone, agent_city, agent_subcity, agent_woreda, agent_house_no, rent_start_date, rent_end_date, eeu_payment, generator_payment, water_payment, building_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const tenantValues = [
       tenantID,
       fullName,
       sex,
@@ -73,8 +90,8 @@ exports.createTenant = async (req, res) => {
       price || null,
       paymentTerm || null,
       deposit,
-      lease_start, // Changed from leaseStart
-      lease_end,   // Changed from leaseEnd
+      lease_start,
+      lease_end,
       registeredByAgent || false,
       authenticationNo || null,
       agentFirstName || null,
@@ -90,14 +107,24 @@ exports.createTenant = async (req, res) => {
       generatorPayment || false,
       waterPayment || false,
       building_id
-  ];
+    ];
 
-  try {
-      const [result] = await db.query(query, values);
-      res.status(201).json({ message: 'Tenant created successfully', id: result.insertId });
+    const [tenantResult] = await db.query(tenantInsertQuery, tenantValues);
+    console.log("Tenant Insert Result:", tenantResult);
+    const newTenantId = tenantResult.insertId;
+
+    // 3. Update the room's record to mark it as occupied.
+    const updateRoomQuery = "UPDATE rooms SET status = ? WHERE id = ?";
+    const [roomUpdateResult] = await db.query(updateRoomQuery, ["taken", room]);
+    console.log("Room Update Result:", roomUpdateResult);
+
+    return res.status(201).json({
+      message: "Tenant created successfully and room marked as 'taken'.",
+      id: newTenantId
+    });
   } catch (err) {
-      console.error('Error creating tenant:', err);
-      res.status(500).json({ error: 'Internal server error' });
+    console.error("Error in createTenant:", err);
+    return res.status(500).json({ error: "Internal server error: " + err.message });
   }
 };
 
@@ -244,13 +271,35 @@ exports.updateTenant = async (req, res) => {
 };
 exports.terminateTenant = async (req, res) => {
   const tenantId = req.params.id;
-  const query = `UPDATE tenants SET \`terminated\` = true WHERE id = ?`;
+  
   try {
-    const [result] = await db.query(query, [tenantId]);
-    if (result.affectedRows === 0) {
+    // 1. Retrieve the tenant record to get the associated room id.
+    const tenantQuery = "SELECT room FROM tenants WHERE id = ?";
+    const [tenantRows] = await db.query(tenantQuery, [tenantId]);
+    
+    if (tenantRows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
-    res.status(200).json({ message: 'Tenant terminated successfully' });
+    
+    const roomId = tenantRows[0].room;
+    
+    // 2. Mark the tenant as terminated.
+    const updateTenantQuery = `UPDATE tenants SET \`terminated\` = true WHERE id = ?`;
+    const [tenantResult] = await db.query(updateTenantQuery, [tenantId]);
+    
+    if (tenantResult.affectedRows === 0) {
+      return res.status(404).json({ error: 'Tenant not found during update.' });
+    }
+    
+    // 3. Update the room's status to "available" so it can be re-assigned.
+    if (roomId) {
+      const updateRoomQuery = "UPDATE rooms SET status = ? WHERE id = ?";
+      await db.query(updateRoomQuery, ["available", roomId]);
+    }
+    
+    res.status(200).json({
+      message: 'Tenant terminated successfully and room marked as available.'
+    });
   } catch (err) {
     console.error('Error terminating tenant:', err);
     res.status(500).json({ error: 'Internal server error' });

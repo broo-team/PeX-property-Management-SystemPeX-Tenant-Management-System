@@ -273,7 +273,7 @@ useEffect(() => {
             subcity: values.subcity ?? "",
             woreda: values.woreda ?? "",
             house_no: values.house_no ?? "",
-            room: values.room?.id ?? null,
+            room: values.room ?? null,
             price: values.price ?? totalAmount,
             paymentTerm: values.payment_term ?? 0,
             deposit: parseFloat(values.deposit) || 0, // Convert to number
@@ -404,7 +404,7 @@ useEffect(() => {
     form.setFieldsValue({
       ...record,
       stallCode: roomObject?.stall_id || null, // Map to stallCode (stall ID)
-      room: roomObject?.id || null, // Set room ID (not the object)
+      room: roomObject?.id || null,             // Set room ID (not the whole object)
       monthlyRent: record.monthly_rent ? Number(record.monthly_rent) : 0,
       payment_term: record.payment_term ? Number(record.payment_term) : 30,
       rentStartDate: record.rent_start ? dayjs(record.rent_start) : dayjs(),
@@ -413,6 +413,7 @@ useEffect(() => {
         ? dayjs(record.lease_end).diff(dayjs(record.lease_start), "day") 
         : 30,
     });
+    
 
     // Force update contract/rent dates
     setTimeout(() => {
@@ -495,9 +496,16 @@ useEffect(() => {
                 <Form.Item name="full_name" label="Full Nameeeeee" rules={[{ required: true, message: "Please enter Full Name" }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item name="sex" label="Sex" rules={[{ required: true, message: "Please enter Sex" }]}>
-                  <Input />
-                </Form.Item>
+                <Form.Item
+  name="sex"
+  label="Sex"
+  rules={[{ required: true, message: "Please select Sex" }]}
+>
+  <Select placeholder="Select Sex">
+    <Select.Option value="male">Male</Select.Option>
+    <Select.Option value="female">Female</Select.Option>
+  </Select>
+</Form.Item>
                 <Form.Item
   name="phone"
   label="Phone Number"
@@ -531,10 +539,17 @@ useEffect(() => {
                 <Form.Item name="subcity" label="Sub City" rules={[{ required: true, message: "Please enter Sub City" }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item name="woreda" label="Woreda" rules={[{ required: true, message: "Please enter Woreda" }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="house_no" label="House No" rules={[{ required: true, message: "Please enter Tenant House No" }]}>
+                <Form.Item
+  name="woreda"
+  label="Woreda"
+  rules={[
+    { required: true, message: "Please enter Woreda" },
+    { pattern: /^[0-9]+$/, message: "Woreda must contain only numbers" },
+  ]}
+>
+  <Input />
+</Form.Item>
+                <Form.Item name="house_no" label="House No" rules={[{ required: true, message: "Please enter Tenant House No" },{ pattern: /^[0-9]+$/, message: "Woreda must contain only numbers" },]}>
                   <Input />
                 </Form.Item>
               </div>
@@ -558,9 +573,16 @@ useEffect(() => {
                   </Form.Item>
                   
                   
-                  <Form.Item name="agent_sex" label="Agent Sex" rules={[{ required: true, message: "Please enter Agent Sex" }]}>
-                    <Input />
-                  </Form.Item>
+                  <Form.Item
+  name="agent_sex"
+  label="Agent Sex"
+  rules={[{ required: true, message: "Please select Agent Sex" }]}
+>
+  <Select placeholder="Select Agent Sex">
+    <Select.Option value="male">Male</Select.Option>
+    <Select.Option value="female">Female</Select.Option>
+  </Select>
+</Form.Item>
                   <Form.Item name="agent_phone" label="Agent Phone" rules={[{ required: true, message: "Please enter Agent Phone" }]}>
                     <Input />
                   </Form.Item>
@@ -618,43 +640,43 @@ useEffect(() => {
 </Form.Item>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
     <Form.Item
-    name="room"
-    label="Room"
-    rules={[{ required: true, message: "Please select a room" }]}
+  name="room"
+  label="Room"
+  rules={[{ required: true, message: "Please select a room" }]}
 >
-    <Select
-        placeholder="Select a room"
-        value={form.getFieldValue("room")?.id || undefined}
-        onChange={(roomId) => {
-            const numericId = Number(roomId);
-            const selectedRoom = availableRooms.find(r => r.id === numericId);
-
-            if (selectedRoom) {
-                form.setFieldsValue({ room: selectedRoom });
-                updateRentAndDeposit(selectedRoom);
-                handleContractUpdate();
-            } else {
-                form.setFieldsValue({ room: null });
-                updateRentAndDeposit(null);
-                handleContractUpdate();
-            }
-        }}
-        disabled={selectedStallId === null} // Disable if no stall is selected
-    >
-        {availableRooms
-            .filter(room => {
-                const activeRoomIds = tenants
-                    .filter(tenant => tenant.terminated === 0)
-                    .map(tenant => tenant.room.toString());
-                return room.id && !activeRoomIds.includes(room.id.toString());
-            })
-            .map((r) => (
-                <Select.Option key={r.id} value={r.id}>
-                    Room {r.roomName}
-                </Select.Option>
-            ))}
-    </Select>
+  <Select
+    placeholder="Select a room"
+    onChange={(roomId) => {
+      const numericId = Number(roomId);
+      const selectedRoom = availableRooms.find(r => r.id === numericId);
+      if (selectedRoom) {
+        // Set the form field's value as the room's numeric id.
+        form.setFieldsValue({ room: numericId });
+        updateRentAndDeposit(selectedRoom);
+        handleContractUpdate();
+      } else {
+        form.setFieldsValue({ room: null });
+        updateRentAndDeposit(null);
+        handleContractUpdate();
+      }
+    }}
+    disabled={!selectedStallId} // Disable if no stall is selected
+  >
+    {availableRooms
+      .filter(room => {
+        const activeRoomIds = tenants
+          .filter(tenant => tenant.terminated === 0)
+          .map(tenant => tenant.room.toString());
+        return room.id && !activeRoomIds.includes(room.id.toString());
+      })
+      .map(r => (
+        <Select.Option key={r.id} value={r.id}>
+          Room {r.roomName}
+        </Select.Option>
+      ))}
+  </Select>
 </Form.Item>
+
         <Form.Item label="Monthly Rent">
             <span>{monthlyRent}</span>
         </Form.Item>

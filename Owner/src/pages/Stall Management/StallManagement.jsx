@@ -35,6 +35,7 @@ const StallManagement = () => {
   // States for currently editing records
   const [editingStall, setEditingStall] = useState(null);
   const [editingRoom, setEditingRoom] = useState(null);
+  const [editingStallId, setEditingStallId] = useState(null);
 
   // Modal visibility states
   const [isStallModalVisible, setIsStallModalVisible] = useState(false); // Create Stall
@@ -68,7 +69,7 @@ const StallManagement = () => {
     }
   };
 
-  // Fetch all rooms using the endpoint (note the response is a nested array)
+  // Fetch all rooms using the endpoint.
   const fetchRooms = async () => {
     setRoomLoading(true);
     try {
@@ -122,6 +123,7 @@ const StallManagement = () => {
     setEditingStall(record);
     stallEditForm.setFieldsValue({
       stallCode: record.stallCode,
+      floorsize: record.floorsize,
       building_id: record.building_id,
     });
     setIsStallEditModalVisible(true);
@@ -132,9 +134,10 @@ const StallManagement = () => {
     try {
       const payload = {
         stallCode: values.stallCode,
+        floorsize: values.floorsize,
         building_id: buildingId, // keep building_id fixed
       };
-      await axios.put(`http://localhost:5000/stalls/rooms/${editingStall.id}`, payload);
+      await axios.put(`http://localhost:5000/stalls/${editingStall.id}`, payload);
       message.success('Stall updated successfully!');
       fetchStalls();
       setIsStallEditModalVisible(false);
@@ -176,85 +179,60 @@ const StallManagement = () => {
       message.error('Failed to delete room');
     }
   };
+
+  // Open modal to edit a room.
   const openRoomEditModal = (record) => {
     console.log('Record being edited:', record);
     setEditingRoom(record);
-
-    // Retrieve the stallId from the record.
     const stallId = record.stall_id;
-
-    // Set the form fields with the room data.
+    setEditingStallId(stallId);
     roomEditForm.setFieldsValue({
-        roomName: record.roomName,
-        size: record.size,
-        monthlyRent: record.monthlyRent,
-        eeuReader: record.eeuReader,
-        status: record.status || 'Available',
+      roomName: record.roomName,
+      size: record.size,
+      monthlyRent: record.monthlyRent,
+      eeuReader: record.eeuReader,
+      status: record.status || 'Available',
     });
-
-    // Store the stallId in the editingRoom state, or in a seperate state variable.
-    setEditingStallId(stallId); // if using a new state variable.
-    // or
-    setEditingRoom({...record, stall_id: stallId}); // if updating the editing room record.
-
     setIsRoomEditModalVisible(true);
-};
+  };
 
-// add a new state variable if you want to store the stall id seperately.
-const [editingStallId, setEditingStallId] = useState(null)
   // Update room details.
   const handleUpdateRoom = async (values) => {
     try {
-      // Explicitly convert size and monthlyRent to numbers
       const size = Number(values.size);
       const monthlyRent = Number(values.monthlyRent);
 
-      // Validate if the converted values are valid numbers
       if (isNaN(size) || isNaN(monthlyRent)) {
         message.error('Size and Monthly Rent must be valid numbers');
-        return; // Stop the request
-      }
-
-      // Validate roomName as a string
-      if (typeof values.roomName !== 'string') {
-        message.error('Room Name must be a string');
         return;
       }
 
-      console.log('Room ID being sent:', editingRoom.id);
-      console.log('Room ID being sent:', editingRoom.id);
-      console.log('Stall ID being sent:', editingRoom.stall_id);
-      // Send the updated data to the server
-      await axios.put(`http://localhost:5000/stalls/${editingRoom.stall_id}/rooms/${editingRoom.id}`, {
-        roomName: values.roomName,
-        size: size,
-        monthlyRent: monthlyRent,
-        eeuReader: values.eeuReader,
-        status: values.status,
-    })
+      await axios.put(
+        `http://localhost:5000/stalls/${editingRoom.stall_id}/rooms/${editingRoom.id}`,
+        {
+          roomName: values.roomName,
+          size,
+          monthlyRent,
+          eeuReader: values.eeuReader,
+          status: values.status,
+        }
+      );
       message.success('Room updated successfully!');
       fetchRooms();
       setIsRoomEditModalVisible(false);
       roomEditForm.resetFields();
     } catch (error) {
-      // Improved error handling
-      if (error.response) {
-        message.error(
-          `Failed to update room: ${error.response.data.error ||
-            error.response.statusText}`
-        );
-      } else {
-        message.error('Failed to update room');
-      }
+      message.error('Failed to update room');
     }
   };
-  // Filter stalls by the defined
+
+  // Filter stalls by the defined building ID.
   const filteredStalls = stalls.filter(
     (stall) => Number(stall.building_id) === buildingId
   );
 
-  // Filter rooms so that only rooms whose stall belongs to the building are shown.
-  // Also filter by room name based on the search term.
+  // Filter rooms so that only rooms whose stall belongs to the building are shown,
+  // and filter by room name based on the search term.
   const filteredRooms = rooms
     .filter((room) => {
       const stall = stalls.find((s) => s.id === room.stall_id);
@@ -264,11 +242,31 @@ const [editingStallId, setEditingStallId] = useState(null)
       room.roomName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+  /* ------------------ TABLE COLUMNS ------------------ */
+
   // Define table columns for the stall list.
   const stallColumns = [
     { title: 'Stall Code', dataIndex: 'stallCode', key: 'stallCode' },
     { title: 'Floor Size', dataIndex: 'floorsize', key: 'floorsize' },
     { title: 'Building ID', dataIndex: 'building_id', key: 'building_id' },
+    // {
+    //   title: 'Status',
+    //   key: 'status',
+    //   render: (_, record) => {
+    //     // Find all rooms associated with this stall.
+    //     const associatedRooms = rooms.filter(
+    //       (room) => room.stall_id === record.id
+    //     );
+    //     // If no rooms exist for this stall, assume it's Available.
+    //     if (associatedRooms.length === 0) return 'Available';
+    //     // If any associated room has a status of "taken" (ignoring case), mark the stall as Taken.
+    //     const isTaken = associatedRooms.some(
+    //       (room) =>
+    //         room.status && room.status.toLowerCase() === 'taken'
+    //     );
+    //     return isTaken ? 'Taken' : 'Available';
+    //   },
+    // },
     {
       title: 'Actions',
       key: 'actions',
@@ -286,7 +284,7 @@ const [editingStallId, setEditingStallId] = useState(null)
   ];
 
   // Define table columns for the room list.
-  // Add a "Stall Code" column (by matching stall_id) and a "Status" column.
+  // It includes a "Stall Code" column (by matching stall_id) and a "Status" column.
   const roomColumns = [
     {
       title: 'Stall Code',
@@ -311,17 +309,19 @@ const [editingStallId, setEditingStallId] = useState(null)
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-          <Space size="middle">
-              <Button type="link" onClick={() => openRoomEditModal(record)}>
-                  Edit
-              </Button>
-              <Button type="link" danger onClick={() => handleDeleteRoom(record.id)}>
-                  Delete
-              </Button>
-          </Space>
+        <Space size="middle">
+          <Button type="link" onClick={() => openRoomEditModal(record)}>
+            Edit
+          </Button>
+          <Button type="link" danger onClick={() => handleDeleteRoom(record.id)}>
+            Delete
+          </Button>
+        </Space>
       ),
-  },
+    },
   ];
+
+  /* ------------------ RENDER COMPONENT ------------------ */
 
   return (
     <div style={{ padding: '20px' }}>
@@ -386,7 +386,7 @@ const [editingStallId, setEditingStallId] = useState(null)
             label="Floor Size"
             rules={[{ required: true, message: 'Please enter the Floor Size' }]}
           >
-            <Input placeholder="Enter floor size code" />
+            <Input placeholder="Enter floor size" />
           </Form.Item>
           <Form.Item
             name="building_id"
@@ -425,7 +425,7 @@ const [editingStallId, setEditingStallId] = useState(null)
             label="Floor Size"
             rules={[{ required: true, message: 'Please enter the Floor Size' }]}
           >
-            <Input placeholder="Enter floor size code" />
+            <Input placeholder="Enter floor size" />
           </Form.Item>
           <Form.Item
             name="building_id"
@@ -481,7 +481,7 @@ const [editingStallId, setEditingStallId] = useState(null)
               >
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
-              </Col>
+            </Col>
             <Col span={12}>
               <Form.Item
                 name="monthlyRent"
@@ -495,16 +495,6 @@ const [editingStallId, setEditingStallId] = useState(null)
           <Form.Item name="eeuReader" label="EEU Reader">
             <Input placeholder="Enter EEU Reader" />
           </Form.Item>
-          {/* <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: "Please select room status" }]}
-          >
-            <Select placeholder="Select status">
-              <Option value="Available">Available</Option>
-              <Option value="Occupied">Occupied</Option>
-            </Select>
-          </Form.Item> */}
           <Button type="primary" htmlType="submit">
             Create Room
           </Button>
@@ -552,16 +542,6 @@ const [editingStallId, setEditingStallId] = useState(null)
           <Form.Item name="eeuReader" label="EEU Reader">
             <Input placeholder="Enter EEU Reader" />
           </Form.Item>
-          {/* <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: "Please select room status" }]}
-          >
-            <Select placeholder="Select status">
-              <Option value="Available">Available</Option>
-              <Option value="Occupied">Occupied</Option>
-            </Select>
-          </Form.Item> */}
           <Button type="primary" htmlType="submit">
             Update Room
           </Button>

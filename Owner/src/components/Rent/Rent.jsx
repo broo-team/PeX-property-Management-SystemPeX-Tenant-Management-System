@@ -971,7 +971,7 @@ const Rent = () => {
       { title: "Tenant Name", dataIndex: "name", key: "name" },
       { title: "Room", dataIndex: "room", key: "room" },
       { title: "Payment Term", dataIndex: "term", key: "term" },
-      { title: "Due Date", dataIndex: "dueDate", key: "dueDate" },
+      { title: "Next Due Date", dataIndex: "dueDate", key: "dueDate" },
       {
         title: "Rent Amount",
         dataIndex: "rentAmount",
