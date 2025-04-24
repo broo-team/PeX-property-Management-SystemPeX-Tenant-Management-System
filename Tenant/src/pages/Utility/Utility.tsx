@@ -10,6 +10,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import axios from "axios";
 import dayjs from "dayjs";
 
+// Assuming the AuthContext user structure aligns with this
+// and user.tenant.tenant_id is the string identifier
+interface AuthUserTenant {
+  tenant_id: string; // Changed from number to string
+  room?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface AuthUser {
+  tenant?: AuthUserTenant;
+  // other user properties
+}
+
 interface UtilityRecord {
   id: string;
   bill_date: string;
@@ -20,7 +34,7 @@ interface UtilityRecord {
   payment_proof_link?: string;
   current_reading: number;
   previous_reading?: number;
-  tenant_id: number;
+  tenant_id: string; // Changed from number to string
   utility_type: string;
   createdAt: string;
   updatedAt: string;
@@ -28,8 +42,8 @@ interface UtilityRecord {
 }
 
 interface TenantData {
-  id: number;
-  tenant_id: number;
+  id: number; // This ID might still be a number for the tenant record itself
+  tenant_id: string; // Changed from number to string - This is the unique string identifier
   full_name: string;
   roomName: string;
   phone: string;
@@ -42,11 +56,12 @@ interface TenantData {
 }
 
 const Utility: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: AuthUser | null }; // Assert type for user
   const [tenantData, setTenantData] = useState<TenantData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchTenantData = async (): Promise<void> => {
+    // Check if user and tenant_id are available and is a string
     if (!user?.tenant?.tenant_id) {
       setIsLoading(false);
       return;
@@ -55,20 +70,26 @@ const Utility: React.FC = () => {
     try {
       setIsLoading(true);
 
-      // Fetch tenant and utility data
-      const [tenantsRes, usageRes] = await Promise.all([
-        axios.get<TenantData[]>(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`, {
+      // Fetch tenant data by the string tenant_id
+      // Assuming your backend API /api/tenants can filter by tenant_id string
+      const tenantsRes = await axios.get<TenantData[]>(
+        `${import.meta.env.VITE_API_BASE_URL}/api/tenants`,
+        {
           params: { tenant_id: user.tenant.tenant_id },
-        }),
-        axios.get<UtilityRecord[]>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`
-        ),
-      ]);
+        }
+      );
+
+      // Fetch utility data
+      // Assuming this endpoint returns all or relevant utility records
+      const usageRes = await axios.get<UtilityRecord[]>(
+        `${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`
+      );
 
       if (tenantsRes.data && tenantsRes.data.length > 0) {
         const tenant = tenantsRes.data[0];
+        // Filter utility records using string comparison of tenant_id
         const usages = usageRes.data.filter(
-          (u) => Number(u.tenant_id) === Number(tenant.tenant_id)
+          (u) => u.tenant_id === tenant.tenant_id // Comparison is now string === string
         );
         const utilityRecords: { [key: string]: UtilityRecord } = {};
         usages.forEach((u) => {
@@ -93,10 +114,11 @@ const Utility: React.FC = () => {
   };
 
   useEffect(() => {
+    // Ensure user and tenant_id exist before fetching
     if (user?.tenant?.tenant_id) {
       fetchTenantData();
     }
-  }, [user?.tenant?.tenant_id]);
+  }, [user?.tenant?.tenant_id]); // Depend on the string tenant_id
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -106,6 +128,8 @@ const Utility: React.FC = () => {
         return "bg-yellow-200 text-yellow-800";
       case "Submitted":
         return "bg-blue-200 text-blue-800";
+      case "Overdue": // Added overdue status example
+        return "bg-red-200 text-red-800";
       default:
         return "bg-gray-200 text-gray-800";
     }
@@ -141,7 +165,7 @@ const Utility: React.FC = () => {
         ) : tenantData?.utility_usage && Object.keys(tenantData.utility_usage).length > 0 ? (
           <ScrollArea className="h-[400px]">
             <div className="space-y-4">
-              {Object.entries(tenantData.utility_usage).map(([utilityType, usage]) => (
+              {Object.entries(tenantData.utility_usage).map(([utilityType, usage]) => usage && ( // Added check for 'usage' existence
                 <motion.div
                   key={utilityType}
                   initial={{ opacity: 0, y: 20 }}
@@ -154,15 +178,15 @@ const Utility: React.FC = () => {
                         <p className="text-sm text-gray-500">Utility Type</p>
                         <p className="text-lg font-semibold">{utilityType.toUpperCase()}</p>
                       </div>
-                      <Badge className={getStatusColor(usage?.utility_status || "")}>
-                        {usage?.utility_status || "N/A"}
+                      <Badge className={getStatusColor(usage.utility_status)}> {/* Removed redundant ?. */}
+                        {usage.utility_status || "N/A"} {/* Removed redundant ?. */}
                       </Badge>
                     </div>
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-sm text-gray-500">Billing Date</p>
                         <p className="text-lg font-semibold">
-                          {dayjs(usage?.bill_date).isValid()
+                          {dayjs(usage.bill_date).isValid() // Removed redundant ?.
                             ? dayjs(usage.bill_date).format("YYYY-MM-DD")
                             : "N/A"}
                         </p>
@@ -170,7 +194,7 @@ const Utility: React.FC = () => {
                       <div>
                         <p className="text-sm text-gray-500">Due Date</p>
                         <p className="text-lg font-semibold">
-                          {dayjs(usage?.due_date).isValid()
+                          {dayjs(usage.due_date).isValid() // Removed redundant ?.
                             ? dayjs(usage.due_date).format("YYYY-MM-DD")
                             : "N/A"}
                         </p>
@@ -180,34 +204,34 @@ const Utility: React.FC = () => {
                       <div>
                         <p className="text-sm text-gray-500">Previous Reading</p>
                         <p className="text-base font-medium">
-                          {usage?.previous_reading !== undefined ? usage.previous_reading : "N/A"}
+                          {usage.previous_reading !== undefined ? usage.previous_reading : "N/A"} {/* Removed redundant ?. */}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Current Reading</p>
                         <p className="text-base font-medium">
-                          {usage?.current_reading}
+                          {usage.current_reading} {/* Removed redundant ?. */}
                         </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Amount Due</p>
                       <p className="text-2xl font-bold text-emerald-600">
-                        {usage?.cost !== undefined ? formatCurrency(usage.cost) : "N/A"}
+                        {usage.cost !== undefined ? formatCurrency(usage.cost) : "N/A"} {/* Removed redundant ?. */}
                       </p>
                     </div>
                     <div className="flex justify-end mt-4">
-                      {usage?.cost !== undefined && (
+                      {usage.cost !== undefined && ( // Removed redundant ?.
                         <UtilityPayment
                           type={utilityType.toLowerCase()}
-                          billId={usage.id}
-                          amount={usage.cost}
-                          disabled={usage.utility_status === "Approved" || usage.utility_status === "Submitted"}
+                          billId={usage.id} // Removed redundant ?.
+                          amount={usage.cost} // Removed redundant ?.
+                          disabled={usage.utility_status === "Approved" || usage.utility_status === "Submitted"} // Removed redundant ?.
                           billDetails={{
-                            fullName: tenantData?.full_name || "",
+                            fullName: tenantData.full_name || "", // tenantData is guaranteed to exist here
                             email: user?.tenant?.email || "",
-                            roomNo: tenantData?.roomName || "",
-                            tenantId: tenantData?.tenant_id,
+                            roomNo: tenantData.roomName || "", // tenantData is guaranteed to exist here
+                            tenantId: tenantData.tenant_id, // tenantData is guaranteed to exist here, and tenant_id is now string
                             phone: user?.tenant?.phone || "",
                           }}
                           onSuccess={() => {

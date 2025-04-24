@@ -201,43 +201,46 @@ exports.handleSuccessCallback = async (req, res) => {
   console.log("Success callback query:", req.query); // Log incoming query parameters
   const { trx_ref } = req.query;
 
+  // Define frontend redirect base URL
+  const dashboardUrl = process.env.CLIENT_URL || 'http://localhost:5174/dashboard'; // Fallback
+
   if (!trx_ref) {
     console.error('Missing trx_ref in success callback');
-    return res.status(400).json({ success: false, message: 'Missing transaction reference' });
+    // Redirect to dashboard with an error indicator
+    return res.redirect(`${dashboardUrl}?payment_status=failed&message=missing_ref`);
   }
 
   try {
+    // The verifyPayment function already updates the DB on success
     const verification = await this.verifyPayment(trx_ref);
 
     if (verification.verified) {
-      res.json({
-        success: true,
-        message: "Payment verified successfully",
-        tx_ref: trx_ref
-      });
+      console.log(`Payment for ${trx_ref} verified successfully. Redirecting to dashboard.`);
+      // Redirect to dashboard with success indicator
+      res.redirect(`${dashboardUrl}?payment_status=success&tx_ref=${trx_ref}`);
     } else {
-      res.status(400).json({
-        success: false,
-        message: verification.message || "Payment verification failed",
-        tx_ref: trx_ref
-      });
+      console.warn(`Payment verification failed for ${trx_ref}. Code: ${verification.code}`);
+       // Redirect to dashboard with failure indicator and code
+      res.redirect(`${dashboardUrl}?payment_status=failed&tx_ref=${trx_ref}&code=${verification.code || 'unknown_error'}`);
     }
   } catch (error) {
-    console.error('Callback error:', error.message);
-    res.status(500).json({
-      success: false,
-      message: "Verification failed",
-      error: error.message
-    });
+    console.error('Callback verification error:', error.message);
+     // Redirect to dashboard with failure indicator and error message
+    res.redirect(`${dashboardUrl}?payment_status=error&tx_ref=${trx_ref}&error_message=${encodeURIComponent(error.message)}`);
   }
 };
+
 
 /**
  * Handle cancel callback after payment.
  */
 exports.handleCancelCallback = (req, res) => {
   console.log('Payment cancellation received:', req.query);
-  res.json({ success: false, message: 'Payment canceled by user', data: req.query });
+  const { trx_ref } = req.query;
+  const dashboardUrl = process.env.CLIENT_URL || 'http://localhost:5174/dashboard'; // Fallback
+
+  // Redirect to dashboard with cancel indicator
+  res.redirect(`${dashboardUrl}?payment_status=canceled&tx_ref=${trx_ref || 'N/A'}`);
 };
 
 /**

@@ -200,7 +200,6 @@ exports.handleWebhook = async (req, res) => {
     return res.status(500).send('Webhook processing failed');
   }
 };
-
 exports.handleUtilitySuccessCallback = async (req, res) => {
   const trx_ref = req.query.trx_ref;
 
@@ -208,19 +207,14 @@ exports.handleUtilitySuccessCallback = async (req, res) => {
     const verificationResult = await exports.verifyUtilityPayment(trx_ref);
 
     if (verificationResult.verified) {
-      res.json({
-        success: true,
-        message: 'Utility payment verified successfully',
-        tx_ref: trx_ref,
-      });
+      // Redirect to the dashboard on success
+      res.redirect(`${process.env.CLIENT_URL}?payment=success&tx_ref=${trx_ref}`);
     } else {
-      res.json({
-        success: false,
-        message: 'Utility payment verification failed',
-        tx_ref: trx_ref,
-      });
+      // Redirect to the dashboard on failure
+      res.redirect(`${process.env.CLIENT_URL}?payment=failure&tx_ref=${trx_ref}`);
     }
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error verifying utility payment' });
+    // Redirect to the dashboard on error
+    res.redirect(`${process.env.CLIENT_URL}?payment=error&tx_ref=${trx_ref}`);
   }
 };

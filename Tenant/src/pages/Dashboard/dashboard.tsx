@@ -1,4 +1,4 @@
-import { useState} from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,7 +40,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
 } from "@/components/ui/dialog";
 import Profile from "../account/profile";
 import { motion, AnimatePresence } from "framer-motion";
@@ -55,21 +55,30 @@ import DashboardCards from "@/components/DashboardCards";
 import RulesCard from "@/components/RulesCard";
 
 export default function Dashboard() {
-  
   const [activeTab, setActiveTab] = useState("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [isPaymentSuccessOpen, setIsPaymentSuccessOpen] = useState(false);
 
+  // When the component mounts, check the URL for a payment parameter.
+  // This covers both types:
+  //   ?payment_status=success  (for lease payments) or ?payment=success (for utility payments)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment_status") || params.get("payment");
+    if (status === "success") {
+      setIsPaymentSuccessOpen(true);
+    }
+  }, []);
 
+  // Sidebar JSX
   const renderSidebar = () => (
     <aside className="hidden lg:flex lg:flex-col w-72 bg-white border-r border-emerald-100">
       <div className="p-4 border-b border-emerald-100">
         <div className="flex items-center space-x-3">
-          <div className="h-9 w-8 rounded-lg  flex items-center justify-center">
+          <div className="h-9 w-8 rounded-lg flex items-center justify-center">
             <img src="/ex.png" alt="logo" className="h-full w-full" />
           </div>
           <h2 className="text-xl font-light bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent ml-0 mt-2">
@@ -77,7 +86,6 @@ export default function Dashboard() {
           </h2>
         </div>
       </div>
-
       <nav className="flex-1 p-4">
         {[
           { name: "Overview", icon: Home },
@@ -100,163 +108,18 @@ export default function Dashboard() {
           </button>
         ))}
       </nav>
-
-      {/* Add user info at bottom of sidebar */}
-      
     </aside>
   );
-      <Card className="bg-white overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-emerald-500 to-emerald-600">
-          <CardTitle className="text-white flex items-center justify-between">
-            <span>Payment Overview</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="text-white hover:bg-emerald-600"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>View Full Report</DropdownMenuItem>
-                <DropdownMenuItem>Export Data</DropdownMenuItem>
-                <DropdownMenuItem>Set Alerts</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Payment Progress */}
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium">Lease Payment</span>
-                  <span className="text-sm text-emerald-600">80%</span>
-                </div>
-                <Progress value={80} className="h-2 bg-emerald-100" />
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium">Electricity Bill</span>
-                  <span className="text-sm text-emerald-600">65%</span>
-                </div>
-                <Progress value={65} className="h-2 bg-emerald-100" />
-              </div>
-            </div>
 
-            {/* Payment Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-emerald-50 p-4 rounded-lg">
-                <p className="text-sm text-emerald-600">Total Paid</p>
-                <p className="text-2xl font-bold text-emerald-700">$2,450</p>
-                <p className="text-xs text-emerald-500">
-                  +12.5% from last month
-                </p>
-              </div>
-              <div className="bg-emerald-50 p-4 rounded-lg">
-                <p className="text-sm text-emerald-600">Upcoming</p>
-                <p className="text-2xl font-bold text-emerald-700">$850</p>
-                <p className="text-xs text-emerald-500">Due in 7 days</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="col-span-2">
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription className="text-emerald-100">
-                Frequently used features
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  {
-                    title: "Schedule Payment",
-                    description: "Set up your next payment",
-                    color: "bg-emerald-400",
-                  },
-                  {
-                    title: "Report Issue",
-                    icon: AlertCircle,
-                    description: "Submit maintenance request",
-                    color: "bg-emerald-400",
-                  },
-                  {
-                    title: "View Documents",
-                    icon: FileText,
-                    description: "Access your lease agreement",
-                    color: "bg-emerald-400",
-                  },
-                  {
-                    title: "Contact Support",
-                    icon: MessageCircle,
-                    description: "Get help with your queries",
-                    color: "bg-emerald-400",
-                  },
-                ].map((action, index) => (
-                  <motion.button
-                    key={index}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="p-4 rounded-lg bg-white/10 backdrop-blur-lg hover:bg-white/20 transition-all duration-200"
-                  >
-                    {/* <action.icon className="h-6 w-6 mb-2" /> */}
-                    <h3 className="font-medium">{action.title}</h3>
-                    <p className="text-sm text-emerald-100">
-                      {action.description}
-                    </p>
-                  </motion.button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Calendar Widget - Updated */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Calendar</CardTitle>
-            <CardDescription>Track your payment dates</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DayPicker
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="border rounded-md p-3"
-              classNames={{
-                day_selected: "bg-emerald-600 text-white",
-                day_today: "bg-emerald-100",
-                day: "rounded-md hover:bg-emerald-50",
-              }}
-              modifiers={{
-                payment: [addDays(new Date(), 7), addDays(new Date(), 15)],
-              }}
-              modifiersStyles={{
-                payment: {
-                  border: "2px solid #059669",
-                  borderRadius: "50%",
-                },
-              }}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Floating Action Button */}
+  return (
+    <div className="min-h-screen bg-emerald-50/30 relative">
+      {/* Floating Action Button for Quick Actions */}
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         className="fixed bottom-6 right-6 p-4 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 transition-colors"
         onClick={() => setShowQuickActions(!showQuickActions)}
+        aria-label="Toggle Quick Actions"
       >
         <Plus className="h-6 w-6" />
       </motion.button>
@@ -288,13 +151,12 @@ export default function Dashboard() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>;
-  return (
-    <div className="min-h-screen bg-emerald-50/30">
+      </AnimatePresence>
+
       <div className="flex h-full">
         {renderSidebar()}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header/>
+          <Header />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
               <Tabs
@@ -303,35 +165,30 @@ export default function Dashboard() {
                 className="w-full"
               >
                 <TabsList className="hidden md:inline-flex bg-emerald-50/50 p-1 rounded-lg border border-emerald-100 mb-6">
-                  {[
-                    "Overview",
-                    "Lease",
-                    "Electricity",
-                    "Maintenance",
-                    "Rules",
-                  ].map((tab) => (
-                    <TabsTrigger
-                      key={tab.toLowerCase()}
-                      value={tab.toLowerCase()}
-                      className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm"
-                    >
-                      {tab}
-                    </TabsTrigger>
-                  ))}
+                  {["Overview", "Lease", "Electricity", "Maintenance", "Rules"].map(
+                    (tab) => (
+                      <TabsTrigger
+                        key={tab.toLowerCase()}
+                        value={tab.toLowerCase()}
+                        className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm"
+                      >
+                        {tab}
+                      </TabsTrigger>
+                    )
+                  )}
                 </TabsList>
-
                 <TabsContent value="overview">
                   <DashboardCards />
                 </TabsContent>
-             <TabsContent value="lease">
-              <LeasePayments />
-             </TabsContent>
+                <TabsContent value="lease">
+                  <LeasePayments />
+                </TabsContent>
                 <TabsContent value="electricity">
                   <Utility />
                 </TabsContent>
                 <TabsContent value="maintenance">
-  <Maintenance />
-</TabsContent>
+                  <Maintenance />
+                </TabsContent>
                 <TabsContent value="rules">
                   <RulesCard />
                 </TabsContent>
@@ -341,6 +198,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Profile Dialog */}
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
         <DialogContent className="sm:max-w-[425px] md:max-w-[700px] lg:max-w-[900px]">
           <DialogHeader>
@@ -353,6 +211,23 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Payment Success Dialog */}
+      <Dialog
+        open={isPaymentSuccessOpen}
+        onOpenChange={setIsPaymentSuccessOpen}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Payment Successful</DialogTitle>
+            <DialogDescription>
+              Your payment has been successfully processed.
+            </DialogDescription>
+          </DialogHeader>
+          <Button onClick={() => setIsPaymentSuccessOpen(false)}>Okay</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Sidebar (Sheet) */}
       <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
         <SheetTrigger asChild>
           <Button
@@ -372,9 +247,7 @@ export default function Dashboard() {
               (item) => (
                 <Button
                   key={item.toLowerCase()}
-                  variant={
-                    activeTab === item.toLowerCase() ? "secondary" : "ghost"
-                  }
+                  variant={activeTab === item.toLowerCase() ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => {
                     setActiveTab(item.toLowerCase());
