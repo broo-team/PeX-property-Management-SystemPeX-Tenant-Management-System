@@ -1,4 +1,3 @@
-// Rent.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import moment from "moment";
 import {
@@ -20,10 +19,8 @@ import axios from "axios";
 import RentInfo from "./RentInfo";
 
 // Use an environment variable if defined or fallback to localhost.
-const API_BASE ="http://localhost:5000/api";
-
-// Auto-renewal threshold in days.
-const AUTO_RENEW_THRESHOLD = 10;
+const API_BASE = "http://localhost:5000/api";
+const AUTO_RENEW_THRESHOLD = 10; // Auto-renewal threshold in days
 
 // Utility: Format currency.
 const formatCurrency = (value) => `${parseFloat(value).toFixed(2)} Birr`;
@@ -35,46 +32,46 @@ const isPaidOrApproved = (status) => {
 };
 
 /*
-  Updated Build Generate Bill Payload:
-  If the record already has a due date and that date is still in the future,
-  we re-use it (so that the "days left" remain as a reminder of the current cycle).
-  Otherwise, if the due date has passed, we extend the previous due date by the payment term.
+  Build Generate Bill Payload:
+  
+  • **Reminder mode:**  
+    If the record already has a due date that is still in the future, it
+    means that this bill is generated as a reminder. In that case, the due date
+    is preserved, and the amount is calculated for a full cycle.  
+    For instance, for a 30-day term, even if generated at day 20 (and 10 days remain),
+    the amount will be: monthlyRent * (30/30) = monthlyRent (2000 Birr).
+
+  • **Renewal mode:**  
+    If there's no valid future due date, then we start a new billing cycle by adding
+    the full term (termDays) to the current date, and charge for the full period.
 */
 const buildGenerateBillPayload = (record) => {
-  // Extract the term in days (e.g., "60 days")
-  const termDays = parseInt(record.term, 10);
+  const termDays = parseInt(record.term, 10); // e.g., "30" for a 30-day cycle
   const now = moment();
-  
-  let extraDays = 0;
-  
-  // Only compute extraDays if this record is NOT an initial registration.
-  if (!record.initialRegistration && record.dueDate) {
-    const diff = moment(record.dueDate).diff(now, "days");
-    if (diff > 0) {
-      extraDays = diff;
-    }
+
+  // Reminder mode: If a due date exists and it's still in the future, preserve it.
+  if (record.dueDate && moment(record.dueDate).isAfter(now)) {
+    return {
+      tenant_id: record.key,
+      bill_date: now.format("YYYY-MM-DD"),
+      due_date: record.dueDate, // Preserve original due date.
+      amount: record.rentAmount * (termDays / 30), // Full cycle's amount.
+    };
   }
   
-  // The extended term becomes base term plus any extra days.
-  const extendedTerm = termDays + extraDays;
-  // Calculate the new due date as now + extendedTerm in days.
-  const newDueDate = moment(now).add(extendedTerm, "days").format("YYYY-MM-DD");
-  // Convert the term (in days) to months (assuming 30 days/month)
-  const termMonths = extendedTerm / 30;
-  
+  // Renewal mode: If the due date is passed or not defined, start a new cycle.
+  const newDueDate = moment(now).add(termDays, "days").format("YYYY-MM-DD");
   return {
     tenant_id: record.key,
     bill_date: now.format("YYYY-MM-DD"),
     due_date: newDueDate,
-    amount: record.monthly_rent * termMonths,
+    amount: record.rentAmount * (termDays / 30), // Full cycle's amount.
   };
 };
 
-
-
 const Rent = () => {
   const [data, setData] = useState([]);
-  const [tick, setTick] = useState(0); // For re-rendering dynamic fields.
+  const [tick, setTick] = useState(0); // For live re-rendering of time-dependent fields.
   const [modalImage, setModalImage] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -83,12 +80,13 @@ const Rent = () => {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState(null);
 
-  // Tick update for live re-rendering (e.g. days left calculations).
+  // Update tick every second to refresh dynamic fields (e.g., days left)
   useEffect(() => {
     const interval = setInterval(() => setTick((prev) => prev + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch tenant and bill data, then merge them.
   const fetchData = useCallback(async () => {
     try {
       const [tenantRes, billRes] = await Promise.all([
@@ -99,38 +97,30 @@ const Rent = () => {
       const bills = billRes.data;
   
       const mergedData = tenants.map((tenant) => {
-        // Get the raw payment term value. Assume if > 12, it's days; otherwise, it's months.
+        // Determine the payment term. Assume if term value is > 12, it's in days; otherwise, treat as months.
         const termRaw = Number(tenant.payment_term) || 30;
         let termDays, termMonths;
-        
         if (termRaw > 12) {
-          // E.g. payment_term "60" means 60 days (i.e. 2 months)
           termDays = termRaw;
           termMonths = termRaw / 30;
         } else {
-          // Otherwise, assume the term is provided in months.
           termMonths = termRaw;
           termDays = termRaw * 30;
         }
-        
-        // Use the monthlyRent field as the monthly rent.
         const monthlyRent = parseFloat(tenant.monthlyRent) || 0;
   
-        // Get the most recent bill, if it exists.
+        // Find the corresponding bill for this tenant.
         const tenantBill = bills.find(
           (b) => Number(b.tenant_id) === Number(tenant.id)
         );
   
         if (tenantBill) {
-          // For an existing bill, calculate next due date based on bill_date or due_date.
+          // For an existing bill, compute the next due date based on bill_date or due_date.
           const cycleStart = tenantBill.bill_date
             ? moment(tenantBill.bill_date)
             : moment(tenantBill.due_date);
           const nextDueDateMoment = cycleStart.clone().add(termDays, "days");
           const daysLeft = nextDueDateMoment.diff(moment(), "days");
-  
-          // If the last bill is paid/approved and the remaining days are low,
-          // mark billGenerated as false so auto-generation can trigger.
           const readyForRenewal =
             isPaidOrApproved(tenantBill.payment_status) &&
             daysLeft <= AUTO_RENEW_THRESHOLD;
@@ -151,23 +141,19 @@ const Rent = () => {
             status: tenantBill.payment_status,
             proof: tenantBill.payment_proof_url || "",
             approved: isPaidOrApproved(tenantBill.payment_status),
-            billGenerated: !readyForRenewal, // When nearing renewal, set to false
+            billGenerated: !readyForRenewal,
             billAutoTriggered: false,
             nextDueDate: nextDueDateMoment.format("YYYY-MM-DD"),
             daysLeft,
           };
         } else {
-          // For a new tenant registration who has already paid.
-          // Use the tenant's rent_end_date as the due date for the first paid cycle.
+          // For new tenants (or no existing bill), set defaults.
           const dueDate = tenant.rent_end_date
             ? tenant.rent_end_date.split("T")[0]
             : moment().add(termDays, "days").format("YYYY-MM-DD");
           const daysLeft = moment(dueDate).diff(moment(), "days");
           const totalRentDue = monthlyRent * termMonths;
-          
-          // Check if the days left is within the auto-generation threshold.
           const autoTriggerForNew = daysLeft <= AUTO_RENEW_THRESHOLD;
-          // If within threshold, set billGenerated to false so auto-generation will kick in.
           const billGenerated = !autoTriggerForNew;
   
           return {
@@ -176,19 +162,19 @@ const Rent = () => {
             name: tenant.full_name,
             room: tenant.room,
             term: `${termDays} days`,
-            dueDate, // Tenant's pay period end date.
-            billDate: dueDate, // Use dueDate as the initial bill date.
+            dueDate,
+            billDate: dueDate,
             rentAmount: monthlyRent,
             penalty: 0,
             totalDue: totalRentDue,
-            status: "Paid",         // Mark as already paid.
+            status: "Paid", // Initially marked as paid.
             proof: "",
-            approved: true,         // Already approved because it's been paid.
-            billGenerated,          // Dynamically set based on days left.
+            approved: true,
+            billGenerated,
             billAutoTriggered: false,
             nextDueDate: dueDate,
             daysLeft,
-            initialRegistration: true, // Optional if you need to know it's first time.
+            initialRegistration: true,
           };
         }
       });
@@ -199,16 +185,16 @@ const Rent = () => {
       message.error("Failed to fetch tenant and bill data.");
     }
   }, []);
-  
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Periodically update overdue bills.
+  // Periodically update overdue bills every 60 seconds.
   useEffect(() => {
     const updateOverdueBills = async () => {
       try {
-        await axios.patch(`${API_BASE}/rent/updateOverdue`);
+        await axios.patch(`${API_BASE}/rent/updateOverdue`, {});
         fetchData();
       } catch (error) {
         console.error("Error updating overdue bills:", error);
@@ -226,7 +212,9 @@ const Rent = () => {
       const response = await axios.post(`${API_BASE}/rent/generate`, payload);
       const returnedBillId = response.data.billId;
       const payment_status = response.data.payment_status || "Unpaid";
-
+      // Calculate updated days left using the (preserved) due_date.
+      const updatedDaysLeft = moment(payload.due_date).diff(moment(), "days");
+  
       setData((prevData) =>
         prevData.map((item) =>
           item.key === record.key
@@ -240,14 +228,15 @@ const Rent = () => {
                 billId: returnedBillId,
                 dueDate: payload.due_date,
                 penalty: 0,
-                totalDue: record.rentAmount,
+                totalDue: record.rentAmount, // full amount now
                 billDate: payload.bill_date,
+                daysLeft: updatedDaysLeft,
               }
             : item
         )
       );
       message.success(
-        `Bill generated! Total Due: ${formatCurrency(record.rentAmount)}`
+        `Bill generated! ${updatedDaysLeft >= 0 ? updatedDaysLeft + " days left" : "Overdue"}`
       );
     } catch (error) {
       console.error("Error generating bill:", error);
@@ -255,12 +244,10 @@ const Rent = () => {
     }
   }, []);
 
-  // Auto-generate bills if the renewal conditions are met.
+  // Auto-generate bills if conditions are met.
   const autoGenerateBills = useCallback(() => {
     data.forEach((record) => {
-      // If billGenerated is false and no auto generation has triggered.
       if (!record.billGenerated && !record.billAutoTriggered) {
-        // Mark as triggered to prevent duplicate calls.
         setData((prevData) =>
           prevData.map((item) =>
             item.key === record.key ? { ...item, billAutoTriggered: true } : item
@@ -350,12 +337,9 @@ const Rent = () => {
 
   // Render cell for the "Generate Bill" column.
   const renderGenerateBillCell = (record) => {
-    // If a billing request is in progress (auto trigger running) but not finalized:
     if (record.billAutoTriggered && !record.billGenerated) {
       return <Tag color="orange">Auto Generating...</Tag>;
     }
-  
-    // If the bill is already generated, simply show the remaining days based on dueDate.
     if (record.billGenerated) {
       const daysLeft = moment(record.dueDate).diff(moment(), "days");
       return daysLeft >= 0 ? (
@@ -364,15 +348,13 @@ const Rent = () => {
         <Tag color="red">Overdue</Tag>
       );
     }
-  
-    // For records without a generated bill, fall back on the original logic:
     return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
       <Tag color="blue">{record.daysLeft} days left</Tag>
     ) : (
       <Tag color="orange">Auto Generating...</Tag>
     );
   };
-  
+
   // Memoized table columns.
   const columns = useMemo(
     () => [

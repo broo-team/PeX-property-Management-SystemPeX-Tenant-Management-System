@@ -34,29 +34,39 @@ const utilityTypes = [
   the label will be "Generate Bill" (for renewal). Otherwise, it shows "View Bill".
 */
 const getUtilitySectionLabel = (record) => {
+  // If no utility usage exists, let the user generate a bill
   if (!record.utility_usage || Object.keys(record.utility_usage).length === 0) {
     return "Generate Bill";
   }
   const now = dayjs();
+  // Use the tenant's payment term or default to 30 days
+  const paymentTerm = Number(record.payment_term) || 30;
+  // Set reminder to be triggered when there are 10 days remaining in the term
+  const reminderThreshold = paymentTerm - 10;
   let renew = false;
   Object.values(record.utility_usage).forEach((usage) => {
-    const dueDate = dayjs(usage.created_at).add(30, "day");
-    // If current date is after due date plus 3 days, mark as needing renewal.
-    if (now.isAfter(dueDate.add(3, "day"))) {
+    // Calculate the threshold date: when the bill should be re‑generated
+    const thresholdDate = dayjs(usage.created_at).add(reminderThreshold, "day");
+    if (now.isAfter(thresholdDate)) {
       renew = true;
     }
   });
   return renew ? "Generate Bill" : "View Bill";
 };
 
+
 // Helper: Compute minimum days left across a tenant's utility records (lower means closer to overdue)
 const computeMinDaysLeft = (tenant) => {
   if (!tenant.utility_usage || Object.keys(tenant.utility_usage).length === 0) {
     return Infinity;
   }
+  const paymentTerm = Number(tenant.payment_term) || 30;
+  const reminderThreshold = paymentTerm - 10;
   let minDays = Infinity;
   Object.values(tenant.utility_usage).forEach((usage) => {
-    const daysLeft = dayjs(usage.created_at).add(30, "day").diff(dayjs(), "day");
+    const daysLeft = dayjs(usage.created_at)
+      .add(reminderThreshold, "day")
+      .diff(dayjs(), "day");
     if (daysLeft < minDays) {
       minDays = daysLeft;
     }
@@ -81,13 +91,19 @@ const Payments = () => {
   // ---------------------------
   const fetchData = async () => {
     try {
-      await axios.put("http://localhost:5000/api/utilities/updatePenalties", {
-        penaltyRate: PENALTY_RATE,
-      });
+      // Update overdue bills: note the corrected HTTP method and URL.
+      await axios.patch("http://localhost:5000/api/rent/updateOverdue");
+  
       const [tenantsRes, usageRes] = await Promise.all([
         axios.get("http://localhost:5000/api/tenants"),
         axios.get("http://localhost:5000/api/utilities/tenant_utility_usage"),
       ]);
+  
+      // Log the responses to verify data
+      console.log("Tenants data:", tenantsRes.data);
+      console.log("Utility usage data:", usageRes.data);
+      
+      // Your merging logic...
       const mergedData = tenantsRes.data.map((tenant) => {
         const usages = usageRes.data.filter(
           (u) => Number(u.tenant_id) === Number(tenant.id)
@@ -102,19 +118,15 @@ const Payments = () => {
         return { ...tenant, utility_usage: utilityRecords };
       });
       const activeData = mergedData.filter((tenant) => !tenant.terminated);
-      // Sort tenants by the minimum days left among their utility records.
       activeData.sort((a, b) => computeMinDaysLeft(a) - computeMinDaysLeft(b));
       setPayments(activeData);
       setFilteredPayments(activeData);
     } catch (error) {
-      message.error("Failed to fetch tenants or utility usage data");
-      console.error(error);
+      console.error("Error details:", error.response || error);
+      message.error("Failed to fetch tenant and bill data.");
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  
 
   useEffect(() => {
     setFilteredPayments(payments);
@@ -614,17 +626,22 @@ const Payments = () => {
                     <p>No Payment Proof Submitted for {label}.</p>
                   )}
                   {usage.utility_status === "Bill Generated" &&
-                    dayjs().isAfter(dayjs(usage.created_at).add(33, "day")) && (
-                      <p style={{ color: "red" }}>
-                        Late Payment History: This bill is overdue. Please generate a new bill to renew.
-                      </p>
-                    )}
-                  {usage.utility_status === "Bill Generated" &&
-                    dayjs().isBefore(dayjs(usage.created_at).add(33, "day")) && (
-                      <p style={{ color: "green" }}>
-                        This is the current bill. It will renew if payment is not received.
-                      </p>
-                    )}
+  dayjs().isAfter(
+    dayjs(usage.created_at).add(selectedPayment.payment_term || 30, "day")
+  ) && (
+    <p style={{ color: "red" }}>
+      Late Payment History: This bill is overdue. Please generate a new bill to renew.
+    </p>
+)}
+{usage.utility_status === "Bill Generated" &&
+  dayjs().isBefore(
+    dayjs(usage.created_at).add(selectedPayment.payment_term || 30, "day")
+  ) && (
+    <p style={{ color: "green" }}>
+      This is the current bill. It will renew if payment is not received.
+    </p>
+)}
+
                 </div>
               ) : null;
             })}

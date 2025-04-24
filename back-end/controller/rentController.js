@@ -1,3 +1,4 @@
+
 // controllers/rentController.js
 const db = require("../db/connection");
 
