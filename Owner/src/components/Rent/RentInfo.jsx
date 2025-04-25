@@ -22,11 +22,12 @@ import {
 } from "@ant-design/icons";
 import axios from "axios";
 import moment from "moment";
+import { useAuth } from "../../context/AuthContext";
 
 const { Title, Text } = Typography;
 const API_BASE = "http://localhost:5000/api";
-const buildingId = 3;
 
+// This function was correctly placed outside the component and stays here
 const getLeaseReminder = (leaseEndDate) => {
   const daysLeft = moment(leaseEndDate).diff(moment(), "days");
 
@@ -53,6 +54,7 @@ const getLeaseReminder = (leaseEndDate) => {
   }
 };
 
+// This function was correctly placed outside the component and stays here
 const calculateDueStatus = (dueDate) => {
   const daysDue = moment(dueDate).diff(moment(), "days");
   if (daysDue < 0) return { text: "Overdue", color: "red" };
@@ -61,10 +63,13 @@ const calculateDueStatus = (dueDate) => {
 };
 
 const RentInfo = (props) => {
+  // useAuth() is called inside the component body (already fixed)
+  const { buildingId } = useAuth(); // Assuming buildingId might still be numeric based on auth context
+
   const { billId: routeBillId } = useParams();
   const billId = props.billId || routeBillId;
   const isModal = props.isModal || false;
-  
+
   const [billDetails, setBillDetails] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,21 +77,38 @@ const RentInfo = (props) => {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Ensure we have billId to fetch details
+      if (!billId) {
+          setLoading(false);
+          message.error("Bill ID is missing.");
+          return;
+      }
+       // Ensure buildingId is available from auth context
+       if (!buildingId) {
+            setLoading(false);
+            message.error("Building context is missing."); // Or handle appropriately
+            return;
+       }
+
+
       try {
         const [billResponse, tenantResponse] = await Promise.all([
           axios.get(`${API_BASE}/rent/${billId}`),
-          axios.get(`${API_BASE}/tenants`),
+          axios.get(`${API_BASE}/tenants`), // Fetch all tenants
         ]);
 
         const billData = billResponse.data;
         setBillDetails(billData);
 
-        // ✅ Fix tenant lookup using tenant_id instead of id
+        // FIX APPLIED HERE: Compare tenant_id as strings
+        // This correctly handles both numeric and non-numeric string IDs
         const matchingTenant = tenantResponse.data.find(
-          (t) => Number(t.tenant_id) === Number(billData.tenant_id)
+          (t) => String(t.tenant_id) === String(billData.tenant_id)
         );
 
         if (matchingTenant) {
+          // Keep Number() for buildingId comparison if auth context buildingId is numeric
+          // or if backend sends building_id as string/number inconsistently
           if (Number(matchingTenant.building_id) !== Number(buildingId)) {
             message.error("This tenant is not registered in your building.");
             setTenant(null);
@@ -94,17 +116,25 @@ const RentInfo = (props) => {
             setTenant(matchingTenant);
           }
         } else {
-          message.error("Tenant not found");
+          // This message might appear if the tenant_id on the bill doesn't exist
+          // in the fetched list of tenants, even if the building ID matches later.
+          // Consider refining backend to fetch only tenants for the current building.
+          message.error(`Tenant with ID ${billData.tenant_id} not found in the tenant list.`);
+          setTenant(null); // Ensure tenant state is null if not found
         }
       } catch (error) {
+        console.error("Failed to fetch data:", error);
         message.error("Failed to fetch data");
+        setTenant(null); // Ensure tenant state is null on error
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [billId, buildingId]); // ✅ Add buildingId
+
+  }, [billId, buildingId]); // dependency array is correct
+
   if (loading)
     return (
       <div
@@ -119,17 +149,27 @@ const RentInfo = (props) => {
       </div>
     );
 
-  if (!billDetails) return <div>No bill details available</div>;
-  if (!tenant) {
-    return (
-      <div className="rent-info-container">
-        <Title level={3} style={{ color: "#ff4d4f" }}>
-          No rent details available for this building.
-        </Title>
-      </div>
-    );
-  }
+   // Render error state if bill or tenant details are missing after loading
+   if (!billDetails || !tenant) {
+       return (
+         <div className="rent-info-container">
+           {isModal ? null : (
+             <div className="rent-info-nav" style={{ marginBottom: 16 }}>
+                <Button type="primary" onClick={() => window.history.back()}>Back</Button>
+             </div>
+           )}
+           <Title level={3} style={{ color: "#ff4d4f" }}>
+             Could not load complete details for this rent payment.
+           </Title>
+           {/* Optionally add more specific feedback here */}
+           {/* {!billDetails && <Text>Bill details not found.</Text>} */}
+           {/* {!tenant && <Text>Tenant details not found or tenant is not in your building.</Text>} */}
+         </div>
+       );
+   }
 
+
+  // Rest of the rendering logic is the same, now confident tenant and billDetails are available
   const dueStatus = calculateDueStatus(billDetails.due_date);
   const penaltyDays = moment().isAfter(moment(billDetails.due_date))
     ? moment().diff(moment(billDetails.due_date), "days")
@@ -141,18 +181,6 @@ const RentInfo = (props) => {
   return (
     <div className="rent-info-container">
       {/* Navigation / Close Button */}
-      {isModal ? (
-        <div className="rent-info-nav" style={{ marginBottom: 16 }}>
-          {/* <Button type="primary" onClick={props.onClose}>
-            Close
-          </Button> */}
-        </div>
-      ) : (
-        <div className="rent-info-nav" style={{ marginBottom: 16 }}>
-          <Button type="primary">Back to Rent Management</Button>
-        </div>
-      )}
-
       <Title level={2} style={{ color: "#1d3557", marginBottom: 24 }}>
         Rent Payment Details
         <Text type="secondary" style={{ fontSize: 16, marginLeft: 12 }}>
@@ -289,6 +317,8 @@ const RentInfo = (props) => {
               <Col xs={24}>
                 <Text strong>Building ID:</Text>
                 <div style={{ marginTop: 8 }}>
+                  {/* Display tenant_id here if needed, showing it's a string */}
+                   {/* <Text>Tenant ID: {tenant.tenant_id}</Text><br/> */}
                   <Text>{tenant.building_id}</Text>
                 </div>
               </Col>
@@ -298,9 +328,9 @@ const RentInfo = (props) => {
                 color={
                   getLeaseReminder(tenant.lease_end).isUrgent
                     ? getLeaseReminder(tenant.lease_end).daysLeft < 0
-                      ? "red"
-                      : "orange"
-                    : "blue"
+                      ? "red" // Past due
+                      : "orange" // Due soon
+                    : "blue" // Active / Upcoming
                 }
                 style={{ marginTop: 16, fontSize: 14 }}
               >
@@ -310,7 +340,7 @@ const RentInfo = (props) => {
           </Card>
         </Col>
       </Row>
-      {/* Custom CSS for responsiveness */}
+      {/* Custom CSS remains the same */}
       <style>{`
         .rent-info-container {
           max-width: 1200px;
@@ -352,6 +382,3 @@ const RentInfo = (props) => {
 };
 
 export default RentInfo;
-
-// https://copilot.microsoft.com/chats/T62CWs8XtpwHYUSYh9tQE
-// https://copilot.microsoft.com/chats/bwAVEASEY9gC5zc2Yjtdp

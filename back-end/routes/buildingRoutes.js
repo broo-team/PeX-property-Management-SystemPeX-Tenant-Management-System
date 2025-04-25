@@ -9,4 +9,4 @@ router.get('/:id', buildingController.getBuildingById);
 router.post('/', buildingController.createBuilding);
 
   
-module.exports = router;
+module.exports = router
