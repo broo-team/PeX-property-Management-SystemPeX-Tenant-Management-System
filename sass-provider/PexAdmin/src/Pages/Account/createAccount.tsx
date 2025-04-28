@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { useForm, Controller, FieldErrors } from "react-hook-form";
 import { Button } from "@/components/ui/button";

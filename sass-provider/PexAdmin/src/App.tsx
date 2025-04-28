@@ -1,10 +1,11 @@
+// src/App.js
 import "./App.css";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Dashboard from "./Pages/dashboard";
 import Login from "./Pages/login";
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast'; // Assuming react-hot-toast
 import { AuthProvider } from "./context/AuthContext";
-import { PrivateRoute } from "./guard/PrivateRoute";
+import { PrivateRoute } from "./guard/PrivateRoute"; // Correct import
 import Properties from "./Pages/Properties";
 import Notifications from "./Pages/Notifications";
 import Tenants from "./Pages/Tenant";
@@ -15,39 +16,43 @@ function App() {
       <div className="App">
         <Router>
           <Routes>
+            {/* Public Route for Login */}
             <Route path="/" element={<Login />} />
+
+            {/* Protected Routes - Wrap elements with PrivateRoute */}
             <Route
               path="/dashboard"
               element={
-                // <PrivateRoute>
+                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
                   <Dashboard />
-                // </PrivateRoute> 
+                </PrivateRoute>
               }
             />
             <Route
               path="/properties"
               element={
-                // <PrivateRoute>
+                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
                   <Properties />
-                  // {/* </PrivateRoute>  */}
+                </PrivateRoute>
               }
             />
-             <Route
+            <Route
               path="/notifications"
               element={
-                // <PrivateRoute>
+                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
                   <Notifications />
-                  // {/* </PrivateRoute>  */}
+                </PrivateRoute>
               }
             />
-                         <Route
+            <Route
               path="/tenants"
               element={
-                // <PrivateRoute>
+                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
                   <Tenants />
-                  // </PrivateRoute> 
+                </PrivateRoute>
               }
             />
+            {/* Add other routes here */}
           </Routes>
         </Router>
         <Toaster position="top-right" reverseOrder={false} />

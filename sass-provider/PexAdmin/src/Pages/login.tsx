@@ -1,144 +1,163 @@
+// src/Pages/login.tsx
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import axiosInstance from "@/services/authService";
-import axios from "axios"; // Using axios directly for testing
-import { useState, useEffect } from "react";
-import { toast } from 'react-hot-toast';
-import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
+import { useNavigate, useLocation } from "react-router-dom"; // Import useLocation
+import { useAuth } from "@/context/AuthContext"; // <-- Import the useAuth hook
 
 const Login = () => {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPhoneValid, setIsPhoneValid] = useState(false);
-  const navigate = useNavigate();
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation(); // Use useLocation to get state (if user was redirected from a protected route)
+  const { login } = useAuth(); // <-- Get the login function from the AuthContext
 
-  const validatePhoneNumber = (phoneNumber: string): boolean => {
-    const phoneRegex = /^(09|07)\d{8}$/;
-    return phoneRegex.test(phoneNumber);
-  };
+  // Determine where to redirect after login (either the page they tried to access or dashboard)
+  const from = location.state?.from?.pathname || "/dashboard";
 
-  useEffect(() => {
-    if (phoneNumber) {
-      setIsPhoneValid(validatePhoneNumber(phoneNumber));
-    }
-  }, [phoneNumber]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Button clicked");
-    console.log("Phone number:", phoneNumber, "Password:", password);
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    if (!isPhoneValid) {
-      setError("Please enter a valid phone number starting with 09 or 07.");
-      toast.error("Invalid phone number format.");
-      return;
-    }
+    if (!email) {
+      setError("Please enter your email address.");
+      toast.error("Email is required.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      toast.error("Password is required.");
+      return;
+    }
 
-    if (!password) {
-      setError("Please enter your password.");
-      toast.error("Password is required.");
-      return;
-    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email format.");
+      toast.error("Invalid email format.");
+      return;
+    }
 
-    try {
-      // Using axios directly for testing
-      const response = await axiosInstance.post("/api/auth/login", {
-        phoneNumber,
-        password,
-      });
+    setError(null); // Clear previous errors
 
-      console.log("API Response:", response); // Log response for debugging
+    try {
+      const response = await axiosInstance.post("/api/creators/login", {
+        email,
+        password,
+      });
 
-      if (response.data && response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        navigate("/dashboard");
-        toast.success("Login successful!");
-      
-      } else {
-        // Handle case where accessToken is missing or response structure is unexpected
-        setError("Unexpected response format.");
-        toast.error("Unexpected response format.");
-      }
-    } catch (err) {
-      console.error("Error:", err); // Log the error to debug
+      if (response.data && response.data.token) {
+        // localStorage.setItem("token", response.data.token); // <-- REMOVE this line
 
-      if (axios.isAxiosError(err)) {
-        if (err.response && err.response.data && err.response.data.message) {
-          setError(err.response.data.message);
-          toast.error(err.response.data.message);
-        } else {
-          setError("An unexpected error occurred. Please try again.");
-          toast.error("An unexpected error occurred. Please try again.");
-        }
-      } else {
-        setError("A network or system error occurred.");
-        toast.error("A network or system error occurred.");
-      }
-    }
-  };
+        login(response.data.token); // <-- Call the login function from AuthContext
 
-  return (
-    <div className="w-full lg:grid lg:min-h-[600px] lg:grid-cols-2 xl:min-h-[800px]">
-      <div className="flex items-center justify-center py-12">
-        <form className="mx-auto grid w-[350px] gap-6" onSubmit={handleLogin}>
-          <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">Login</h1>
-            <p className="text-slate-500">
-              Enter your Phone Number below to login to your account
-            </p>
-          </div>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="phoneNumber">Phone Number</Label>
-              <Input
-                id="phoneNumber"
-                type="text"
-                placeholder="0912345678"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                required
-                className={isPhoneValid ? "border-green-500" : "border-red-500"}
-              />
-              {!isPhoneValid && phoneNumber && (
-                <p className="text-red-500">Invalid phone number format</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && <p className="text-red-500">{error}</p>}
-            <Button
-              type="submit"
-              className={`w-full bg-emerald-500 hover:bg-emerald-600 ${!isPhoneValid || !password ? "cursor-not-allowed opacity-50" : ""}`}
-              disabled={!isPhoneValid || !password}
-            >        
-              Login
-            </Button>
-          </div>
-        </form>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        <img
-          src="/login.svg"
-          alt="Image"
-          width="500"
-          height="500"
-          className="object-cover dark:brightness-[0.2] dark:grayscale ml-32 mt-52"
-        />
-      </div>
-    </div>
-  );
+        toast.success("Login successful!");
+
+        // Navigate to the intended page or default dashboard
+        navigate(from, { replace: true }); // <-- Navigate to 'from' location
+      } else {
+        setError("Unexpected response format from server.");
+        toast.error("Unexpected response format.");
+      }
+    } catch (err) {
+      console.error("Login Error:", err);
+
+      if (axios.isAxiosError(err)) {
+        const serverMessage = err.response?.data?.message;
+        if (serverMessage) {
+          setError(serverMessage);
+          toast.error(serverMessage);
+        } else if (err.response) {
+          setError(`Login failed with status: ${err.response.status}`);
+          toast.error(`Login failed with status: ${err.response.status}`);
+        } else {
+          setError("Network error or server is unreachable.");
+          toast.error("Network error or server is unreachable.");
+        }
+      } else {
+        setError("An unexpected error occurred during login.");
+        toast.error("An unexpected error occurred.");
+      }
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-6">
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-4xl flex">
+        {/* Left Illustration */}
+        <div className="hidden md:flex w-1/2 bg-gradient-to-br from-purple-600 to-indigo-600 items-center justify-center p-10">
+          <img
+            src="/login-illustration.svg"
+            alt="Login illustration"
+            className="w-80 h-80 object-contain"
+          />
+        </div>
+
+        {/* Right Form */}
+        <div className="w-full md:w-1/2 p-10">
+          <h2 className="text-4xl font-bold text-gray-800 mb-4 text-center">Welcome Back!</h2>
+          <p className="text-gray-500 text-center mb-8">Login to your account</p>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            {/* Email Field */}
+            <div>
+              <Label htmlFor="email" className="text-gray-700">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="mt-2 border rounded-md px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <Label htmlFor="password" className="text-gray-700">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                className="mt-2 border rounded-md px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <p className="text-red-500 text-sm">{error}</p>
+            )}
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-md transition duration-300 ${!email || !password ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!email || !password}
+            >
+              Login
+            </Button>
+          </form>
+
+          {/* Sign Up Link */}
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Don’t have an account?
+            {/* Change a tag to Link component if using react-router-dom */}
+            <a href="/register" className="text-purple-600 hover:underline ml-1">
+              Sign up
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default Login;

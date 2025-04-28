@@ -15,6 +15,7 @@ const maintenanceRoutes = require("./routes/maintenance")
 const tenantsRoutes = require('./routes/tenantLoginRoutes');
 const paymentRoutes = require("./routes/paymentRoutes")
 const userRoutes = require("./routes/userRoutes")
+const creatorRoutes = require("./routes/creatorRoutes")
 const cors = require("cors");
 // const { bulkVerifyPayments } = require('./controller/paymentController');
 const PORT = process.env.PORT || 5000;
@@ -40,32 +41,34 @@ app.use("/api/users", usersRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api', userRoutes); 
-
+app.use('/api/creators', creatorRoutes);
 // A simple test route
 app.get('/', (req, res) => {
   res.send('Welcome to the Tenant Management API');
 });
 
-app.listen(PORT, async () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+// app.listen(PORT, async () => {
+//   console.log(`🚀 Server is running on port ${PORT}`);
 
-  try {
-    console.log('Starting ngrok...');
-    const url = await ngrok.connect(PORT); // open ngrok tunnel to the port
-    console.log(`🌐 Ngrok tunnel is live at: ${url}`);
-    if (!url) {
-      console.warn('Ngrok failed to start. Webhooks may not work.');
-    }
+//   try {
+//     console.log('Starting ngrok...');
+//     const url = await ngrok.connect(PORT); // open ngrok tunnel to the port
+//     console.log(`🌐 Ngrok tunnel is live at: ${url}`);
+//     if (!url) {
+//       console.warn('Ngrok failed to start. Webhooks may not work.');
+//     }
 
-    // Optional: print webhook URL
-    console.log(`📩 Set your webhook to: ${url}/api/payments/webhook`);
-  } catch (err) {
-    console.error('❌ Failed to start ngrok:', err.message);
-  }
-});
+//     // Optional: print webhook URL
+//     console.log(`📩 Set your webhook to: ${url}/api/payments/webhook`);
+//   } catch (err) {
+//     console.error('❌ Failed to start ngrok:', err.message);
+//   }
+// });
 
 
-
+app.listen(PORT,()=>{
+  console.log(`the appis runniing on ${PORT}`)
+})
 
 // Example with node-cron in your main server file (app.js / server.js)
 
