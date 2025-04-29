@@ -51,6 +51,7 @@ const Rent = () => {
   const [proofLink, setProofLink] = useState("");
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState(null);
+const [proofFile, setProofFile] = useState(null);
 
   // Get buildingId from auth context
   const { buildingId, authLoading } = useAuth();
@@ -368,35 +369,43 @@ const Rent = () => {
     // by recalculating daysLeft and potentially triggering the auto-generation logic.
     autoGenerateBills();
   }, [tick, autoGenerateBills]);
-
-
   // Submit payment proof.
   // Note: This endpoint likely doesn't need buildingId if the billId is sufficient
   // for the backend to identify the bill and associated building/tenant.
-  const submitProof = async () => {
-    if (!proofLink.trim()) {
-      message.error("Please enter a valid image link.");
-      return;
-    }
-    if (!selectedRecord?.billId) {
-      message.error("Bill not generated. Generate the bill first.");
-      return;
-    }
-    try {
-      await axios.patch(`${API_BASE}/rent/${selectedRecord.billId}/proof`, {
-        proof_url: proofLink,
-      });
-      // After submitting proof, refetch all data to update the table
-      fetchAllData();
-      setProofModalVisible(false);
-      setProofLink("");
-      message.success("Payment proof submitted!");
-    } catch (error) {
-      console.error("Error submitting payment proof:", error);
-      message.error("Failed to submit payment proof");
-    }
-  };
-
+// Update submitProof to use FormData and send the file
+const submitProof = async () => {
+    if (!proofFile) {
+      message.error("Please select a file to upload.");
+      return;
+    }
+    if (!selectedRecord?.billId) {
+      message.error("Bill not generated. Generate the bill first.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("payment_proof", proofFile); // Ensure backend matches this key
+  
+    try {
+      await axios.patch(
+        `${API_BASE}/rent/${selectedRecord.billId}/proof`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+  
+      fetchAllData(); // Refresh data after success
+      setProofModalVisible(false);
+      setProofFile(null);
+      message.success("Payment proof submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting payment proof:", error);
+      message.error("Failed to submit payment proof");
+    }
+  };
   // Approve payment.
   // Note: This endpoint likely doesn't need buildingId if the billId is sufficient.
   const handleApprove = useCallback(async (record) => {
@@ -609,58 +618,69 @@ const Rent = () => {
       />
 
       {/* Modal for Submitting Payment Proof */}
-      <Modal
-        visible={proofModalVisible}
-        title="Submit Payment Proof"
-        onCancel={() => setProofModalVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setProofModalVisible(false)}>
-            Cancel
-          </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={submitProof}
-          >
-            Submit
-          </Button>,
-        ]}
-      >
-        <Form>
-          <Form.Item label="Image Link" required>
-            <Input
-              placeholder="Enter proof image link"
-              value={proofLink}
-              onChange={(e) => setProofLink(e.target.value)}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+    <Modal
+  visible={proofModalVisible}
+  title="Submit Payment Proof"
+  onCancel={() => {
+    setProofModalVisible(false);
+    setProofFile(null);
+  }}
+  footer={[
+    <Button key="cancel" onClick={() => {
+      setProofModalVisible(false);
+      setProofFile(null);
+    }}>
+      Cancel
+    </Button>,
+    <Button
+    key="submit"
+    type="primary"
+    icon={<UploadOutlined />}
+    onClick={submitProof}
+    disabled={!proofFile} // Only enable if file is selected
+  >
+    Upload
+  </Button>
+  ]}
+>
+  <Form layout="vertical">
+    <Form.Item label="Upload File" required>
+      <Input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setProofFile(e.target.files[0])}
+      />
+    </Form.Item>
+  </Form>
+</Modal>
 
       {/* Modal for Viewing Payment Proof */}
-      <Modal
-        visible={modalVisible}
-        footer={[
-          <Button key="cancel" onClick={() => setModalVisible(false)}>
-            Close
-          </Button>,
-          selectedRecord &&
-            selectedRecord.status.toLowerCase() === "submitted" && (
-              <Button
-                key="approve"
-                type="primary"
-                icon={<CheckCircleOutlined />}
-                onClick={() => handleApprove(selectedRecord)}
-              >
-                Approve Payment
-              </Button>
-            ),
-        ]}
-        onCancel={() => setModalVisible(false)}
-      >
-        <img src={modalImage} alt="Proof" style={{ width: "100%" }} />
-      </Modal>
+     <Modal
+  visible={modalVisible}
+  footer={[
+    <Button key="close" onClick={() => setModalVisible(false)}>
+      Close
+    </Button>,
+    selectedRecord &&
+      selectedRecord.status.toLowerCase() === "submitted" && (
+      <Button
+        key="approve"
+        type="primary"
+        icon={<CheckCircleOutlined />}
+        onClick={() => handleApprove(selectedRecord)}
+      >
+        Approve Payment
+      </Button>
+    )
+  ]}
+  onCancel={() => setModalVisible(false)}
+>
+<img 
+    src={`${API_BASE.replace('/api', '')}/${modalImage}`} 
+    alt="Payment Proof" 
+    style={{ width: "100%", maxHeight: "60vh", objectFit: "contain" }} 
+  />
+</Modal>
 
       {/* Modal for Rent Payment Details */}
       <Modal

@@ -114,45 +114,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-emerald-50/30 relative">
       {/* Floating Action Button for Quick Actions */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        className="fixed bottom-6 right-6 p-4 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 transition-colors"
-        onClick={() => setShowQuickActions(!showQuickActions)}
-        aria-label="Toggle Quick Actions"
-      >
-        <Plus className="h-6 w-6" />
-      </motion.button>
-
+      
       {/* Quick Actions Menu */}
-      <AnimatePresence>
-        {showQuickActions && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed bottom-20 right-6 bg-white rounded-lg shadow-xl p-4 w-64"
-          >
-            <div className="space-y-2">
-              {[
-                { icon: DollarSign, label: "Make Payment" },
-                { icon: FileText, label: "View Statement" },
-                { icon: MessageCircle, label: "Contact Support" },
-              ].map((item, index) => (
-                <motion.button
-                  key={index}
-                  whileHover={{ x: 5 }}
-                  className="flex items-center space-x-2 w-full p-2 hover:bg-emerald-50 rounded-lg"
-                >
-                  <item.icon className="h-5 w-5 text-emerald-600" />
-                  <span className="text-sm text-gray-700">{item.label}</span>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+      
       <div className="flex h-full">
         {renderSidebar()}
         <div className="flex-1 flex flex-col overflow-hidden">
