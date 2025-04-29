@@ -170,37 +170,58 @@ exports.approvePayment = async (req, res) => {
     res.status(500).json({ error: "Approval failed" });
   }
 };
+
 // Submit a payment proof.
 exports.submitPaymentProof = async (req, res) => {
   try {
     const billId = req.params.id;
-    const { proof_url } = req.body;
+    // const { proof_url } = req.body; // No longer needed
 
-    if (!proof_url || proof_url.trim() === "") {
-      return res.status(400).json({ message: "Proof URL is required for submission." });
+    // Access the uploaded file information from req.file
+    const uploadedFile = req.file;
+
+    if (!uploadedFile) {
+      return res.status(400).json({ message: "Payment proof image is required for submission." });
     }
 
+    // The path where the file was saved by Multer
+    const proofPath = uploadedFile.path;
+
+    // You might want to store a URL if you're uploading to cloud storage
+    // const proofUrl = 'YOUR_CLOUD_STORAGE_URL/' + uploadedFile.filename; // Example for cloud storage
+
+
     const [result] = await db.query(
-      `UPDATE monthly_rent_bills 
-         SET payment_proof_url = ?, payment_status = 'submitted'
-         WHERE id = ?`,
-      [proof_url, billId]
+      `UPDATE monthly_rent_bills
+           SET payment_proof_url = ?, payment_status = 'submitted'
+           WHERE id = ?`,
+      [proofPath, billId] // Store the file path (or URL) in the database
     );
 
     if (result.affectedRows === 0) {
+      // Clean up the uploaded file if the bill is not found
+      // You might need a mechanism to clean up orphaned files periodically
+      // if using local storage and not immediately deleting.
+      // For a simple case, you could unlink the file here, but be careful.
+      // fs.unlinkSync(proofPath); // Requires 'fs' module
       return res.status(404).json({ message: "Bill not found." });
     }
 
     res.json({
       message: "Payment proof submitted successfully.",
       billId,
+      filePath: proofPath // Optionally return the stored file path/URL
     });
   } catch (error) {
     console.error("Error submitting payment proof:", error);
+    // You might want to clean up the uploaded file in case of a database error
+    // if using local storage.
+    // if (req.file && fs) { // Check if file exists and fs is imported
+    //   fs.unlinkSync(req.file.path);
+    // }
     res.status(500).json({ message: "Server error while submitting payment proof." });
   }
 };
-
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(`

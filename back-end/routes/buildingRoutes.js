@@ -8,5 +8,4 @@ router.put('/suspend/:id', buildingController.suspendBuilding);
 router.get('/:id', buildingController.getBuildingById);
 router.post('/', buildingController.createBuilding);
 
-  
 module.exports = router

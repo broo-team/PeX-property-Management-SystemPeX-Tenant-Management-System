@@ -47,6 +47,8 @@ app.get('/', (req, res) => {
   res.send('Welcome to the Tenant Management API');
 });
 
+app.use('/uploads', express.static('uploads'));
+
 // app.listen(PORT, async () => {
 //   console.log(`🚀 Server is running on port ${PORT}`);
 

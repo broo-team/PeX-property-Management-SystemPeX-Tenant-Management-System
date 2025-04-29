@@ -174,7 +174,7 @@ function TenantInfo() {
           >
             <Descriptions bordered={false} size="middle" column={1}>
               {/* Display room ID from tenant data */}
-              <Descriptions.Item label="Room ID" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
+              <Descriptions.Item label="Room" icon={<HomeOutlined style={{ color: '#1890ff' }} />}>
                 <Text strong>{tenant.room || "N/A"}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Monthly Rent" icon={<MoneyCollectOutlined style={{ color: '#1890ff' }} />}>
@@ -239,13 +239,13 @@ function TenantInfo() {
                 {renderPaymentStatus(tenant.generator_payment)}
               </Descriptions.Item>
               {/* Display latest Generator reading (no room fallback assumed for generator) */}
-              <Descriptions.Item label="Generator Last Reading" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
+{/*               <Descriptions.Item label="Generator Last Reading" icon={<ThunderboltOutlined style={{ color: '#1890ff' }} />}>
                 <Text strong>
                   {latestUtilityReadings.generator?.current_reading !== undefined // Prefer latest usage current reading
                     ? latestUtilityReadings.generator.current_reading
-                    : "0.00"} {/* Default to 0.00 if no usage */}
+                    : "0.00"}
                 </Text>
-              </Descriptions.Item>
+              </Descriptions.Item> */}
             </Descriptions>
           </Card>
         </Col>
