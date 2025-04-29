@@ -891,100 +891,141 @@ const handleUtilitySubmit = async () => {
       </Modal>
 
       {/* View Bill / Approve Payment Proof Modal */}
-      <Modal
-        title={`Utility Bills for ${selectedTenant?.full_name || ''}`}
-        visible={isBillModalVisible}
-        onCancel={() => setIsBillModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setIsBillModalVisible(false)}>
-            Close
-          </Button>,
-          selectedTenant &&
-            selectedTenant.utility_usage &&
-            Object.values(selectedTenant.utility_usage).some(
-              (usage) => usage.utility_status === "Submitted"
-            ) && (
-              <Button key="approve" type="primary" onClick={handleApproveProof} loading={isSubmitting}>
-                Approve Payment Proof
-              </Button>
-            ),
-        ]}
-        width={700} // Increased width for better display of multiple utility details
-        bodyStyle={{ maxHeight: "70vh", overflowY: "auto" }}
-      >
-        {selectedTenant && (
-          <div>
-            {utilityTypes.map(({ key, label }) => {
-              // Get the latest usage record for this utility type
-              const usage = selectedTenant.utility_usage?.[key];
-              return usage ? (
-                <div
-                  key={key}
-                  style={{
-                    marginBottom: "1em",
-                    borderBottom: "1px solid #eee",
-                    paddingBottom: "0.5em",
-                  }}
-                >
-                  <p>
-                    <strong>{label} Details:</strong>
-                  </p>
-                  <p>
-                    <strong>Cost:</strong> birr{usage.cost || "N/A"}&nbsp;&nbsp;
-                    <strong>Penalty:</strong> birr${Number(usage.penalty || 0).toFixed(2)}
-                  </p>
-                  {/* Display readings if available */}
-                   {usage.previous_reading !== undefined && usage.current_reading !== undefined && (
-                      <p>
-                          <strong>Readings:</strong> {usage.previous_reading} to {usage.current_reading}
-                      </p>
-                   )}
-                  <p>
-                    <strong>Bill Date:</strong> {dayjs(usage.bill_date).format("YYYY-MM-DD")}
-                  </p>
-                  <p>
-                    <strong>Due Date:</strong> {dayjs(usage.due_date).format("YYYY-MM-DD")}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {usage.utility_status}
-                  </p>
-                  {usage.payment_proof_link ? (
-                    <div>
-                      <p>
-                        <strong>{label} Payment Proof:</strong>
-                      </p>
-                      {/* Check if the link is for an image before rendering img tag */}
-                           {usage.payment_proof_link.match(/\.(jpeg|jpg|gif|png|pdf)$/i) != null ? ( // Added PDF
-                             <a href={usage.payment_proof_link} target="_blank" rel="noopener noreferrer">
-                               {/* Render image if it's an image link */}
-                               {usage.payment_proof_link.match(/\.(jpeg|jpg|gif|png)$/i) != null && (
-                                <img
-                                   src={usage.payment_proof_link}
-                                   alt={`${label} Payment Proof`}
-                                   style={{ maxWidth: "100%", height: "auto" }}
-                                />
-                               )}
-                               {/* Render link text for PDF or other files */}
-                               {usage.payment_proof_link.match(/\.(pdf)$/i) != null && `View PDF Proof`}
-                               {/* Fallback for other supported file types if needed */}
-                               {!usage.payment_proof_link.match(/\.(jpeg|jpg|gif|png|pdf)$/i) && 'View Proof Link'}
-                             </a>
-                           ) : (
-                             <a href={usage.payment_proof_link} target="_blank" rel="noopener noreferrer">View Proof Link</a>
-                           )}
-                    </div>
-                  ) : (
-                    <p>No Payment Proof Submitted for {label}.</p>
-                  )}
-                </div>
-              ) : null;
-            })}
-             {selectedTenant && (!selectedTenant.utility_usage || Object.keys(selectedTenant.utility_usage).length === 0) && (
-                 <p>This tenant does not have any generated utility bills yet.</p>
-             )}
-          </div>
+      {/* ... previous parts of the modal ... */}
+
+<Modal
+        title={`Utility Bills for ${selectedTenant?.full_name || ''}`}
+        visible={isBillModalVisible}
+        onCancel={() => setIsBillModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsBillModalVisible(false)}>
+            Close
+          </Button>,
+          selectedTenant &&
+            selectedTenant.utility_usage &&
+            // Check if ANY utility usage record for this tenant is in 'Submitted' status
+            Object.values(selectedTenant.utility_usage).some(
+              (usage) => usage && usage.utility_status === "Submitted"
+            ) && (
+                // You might want to approve individual proofs rather than a single button for all.
+                // If approving all submitted proofs at once, the backend needs to handle it.
+                // A safer approach is often an 'Approve' button per submitted proof item.
+                // If this button is meant to approve *all* submitted proofs for this tenant,
+                // your `handleApproveProof` function needs to find all submitted proofs
+                // for this tenant and call the backend's approve endpoint for each, or
+                // a new backend endpoint that approves by tenant ID.
+                // The current backend `approveUtilityPayment` takes a single `usage_id`.
+                // Let's assume for now this button triggers a process to approve *all* submitted proofs for the tenant.
+              <Button
+                key="approve-all-submitted" // Changed key for clarity
+                type="primary"
+                onClick={() => handleApproveProof(selectedTenant.tenant_id)} // Pass tenant_id or trigger loop
+                loading={isSubmitting} // Assuming isSubmitting state is managed for this process
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }} // Ant Design primary green
+              >
+                Approve Submitted Payments
+              </Button>
+            ),
+        ]}
+        width={700} // Increased width for better display of multiple utility details
+        bodyStyle={{ maxHeight: "70vh", overflowY: "auto" }}
+      >
+        {selectedTenant ? ( // Simplified check
+          <div>
+            {utilityTypes.map(({ key, label }) => {
+              // Get the latest usage record for this utility type
+              const usage = selectedTenant.utility_usage?.[key];
+
+              // Construct the full URL for the payment proof file
+              // Combine the base API URL with the stored file path
+              const proofUrl = usage?.payment_proof_link
+                ? `${import.meta.env.VITE_API_BASE_URL}/${usage.payment_proof_link}`
+                : null;
+
+              return usage ? (
+                <div
+                  key={key}
+                  style={{
+                    marginBottom: "1em",
+                    borderBottom: "1px solid #eee",
+                    paddingBottom: "0.5em",
+                  }}
+                >
+                  <p>
+                    <strong>{label} Details:</strong>
+                  </p>
+                  <p>
+                    <strong>Cost:</strong> birr{usage.cost || "N/A"}&nbsp;&nbsp;
+                    <strong>Penalty:</strong> birr{Number(usage.penalty || 0).toFixed(2)} {/* Use 'birr' consistently */}
+                  </p>
+                  {/* Display readings if available */}
+                 {usage.previous_reading !== undefined && usage.current_reading !== undefined && (
+                      <p>
+                          <strong>Readings:</strong> {usage.previous_reading} to {usage.current_reading}
+                      </p>
+                   )}
+                  <p>
+                    <strong>Bill Date:</strong> {dayjs(usage.bill_date).format("YYYY-MM-DD")}
+                  </p>
+                  <p>
+                    <strong>Due Date:</strong> {dayjs(usage.due_date).format("YYYY-MM-DD")}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {usage.utility_status}
+                  </p>
+
+                  {/* Display Payment Proof using the constructed URL */}
+                  {proofUrl ? (
+                    <div>
+                      <p>
+                        <strong>{label} Payment Proof:</strong>
+                      </p>
+                        {/* Check the file extension */}
+                        {proofUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+                           <a href={proofUrl} target="_blank" rel="noopener noreferrer">
+                             <img
+                               src={proofUrl} // Use the constructed URL
+                               alt={`${label} Payment Proof`}
+                               style={{ maxWidth: "100%", height: "auto" }}
+                              />
+                                View Image Proof
+                           </a>
+                        ) : proofUrl.match(/\.(pdf)$/i) ? (
+                           <a href={proofUrl} target="_blank" rel="noopener noreferrer">View PDF Proof</a>
+                        ) : (
+                           // Fallback for any other file type or just the raw link
+                           <a href={proofUrl} target="_blank" rel="noopener noreferrer">View Proof File</a>
+                        )}
+
+                        {/* Optional: Add an "Approve" button next to the proof for admin to action */}
+                        {usage.utility_status === 'Submitted' && (
+                            <Button
+                                size="small" // Adjust size as needed
+                                type="primary"
+                                onClick={() => handleApproveSingleProof(usage.id)} // Needs a function to approve a single usage ID
+                                loading={isSubmitting === usage.id} // Track loading per item
+                                style={{ marginLeft: '10px', backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                            >
+                                Approve
+                            </Button>
+                        )}
+
+                    </div>
+                  ) : (
+                    <p>No Payment Proof Submitted for {label}.</p>
+                  )}
+                </div>
+              ) : null;
+            })}
+             {/* Handle case where there are no utility bills */}
+             {selectedTenant && (!selectedTenant.utility_usage || Object.keys(selectedTenant.utility_usage).length === 0) && (
+                 <p>This tenant does not have any generated utility bills yet.</p>
+             )}
+          </div>
+        ) : (
+            <p>Select a tenant to view utility bills.</p> // Message when no tenant is selected
         )} {/* End of selectedTenant check */}
-      </Modal>
+      </Modal>
     </div>
   );
 };

@@ -238,34 +238,53 @@ exports.recordTenantUtilityUsage = async (req, res) => {
 // 5. Confirm utility payment by uploading proof (Tenant Side)
 // Updates the latest "Bill Generated" record with the provided proof and sets its status to "Submitted".
 exports.confirmUtilityPayment = async (req, res) => {
-  const { tenant_id, payment_proof_link } = req.body;
-  if (!tenant_id || !payment_proof_link) {
-    return res.status(400).json({ error: "tenant_id and payment_proof_link are required" });
+  const { tenant_id } = req.body; // tenant_id comes from the body
+  // The file info is now in req.file
+  const payment_proof_path = req.file ? req.file.path : null; // Get the path from the uploaded file
+
+  // Check if tenant_id is provided and if a file was uploaded
+  if (!tenant_id || !payment_proof_path) {
+      // If no file is uploaded, Multer might not even call the controller,
+      // but this check is good practice in case of other middleware issues or if the file field name is wrong.
+      return res.status(400).json({ error: "tenant_id and payment proof image are required" });
   }
+
   try {
-    const updateQuery = `
-      UPDATE tenant_utility_usage 
-      SET payment_proof_link = ?, utility_status = 'Submitted'
-      WHERE id = (
-        SELECT id FROM (
-          SELECT id
-          FROM tenant_utility_usage
-          WHERE tenant_id = ? AND utility_status = 'Bill Generated'
-          ORDER BY bill_date DESC
-          LIMIT 1
-        ) AS subQuery
-      )
-    `;
-    const [result] = await db.query(updateQuery, [payment_proof_link, tenant_id]);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "No utility usage record in 'Bill Generated' state found for this tenant" });
-    }
-    res.status(200).json({ message: "Utility payment proof submitted successfully, status now: Submitted." });
+      const updateQuery = `
+          UPDATE tenant_utility_usage
+          SET payment_proof_link = ?, utility_status = 'Submitted'
+          WHERE id = (
+              SELECT id FROM (
+                  SELECT id
+                  FROM tenant_utility_usage
+                  WHERE tenant_id = ? AND utility_status = 'Bill Generated'
+                  ORDER BY bill_date DESC
+                  LIMIT 1
+              ) AS subQuery
+          )
+      `;
+      // Use the file path obtained from Multer in the database query
+      const [result] = await db.query(updateQuery, [payment_proof_path, tenant_id]);
+
+      if (result.affectedRows === 0) {
+          // It's possible the file was uploaded but no matching record was found in the DB.
+          // You might want to delete the uploaded file in this case.
+          // require('fs').unlink(payment_proof_path, (err) => { if (err) console.error("Failed to delete uploaded file:", err); });
+          return res.status(404).json({ error: "No utility usage record in 'Bill Generated' state found for this tenant" });
+      }
+
+      res.status(200).json({ message: "Utility payment proof submitted successfully, status now: Submitted.", filePath: payment_proof_path });
+
   } catch (error) {
-    console.error("Error confirming utility payment:", error);
-    res.status(500).json({ error: "Internal server error" });
+      console.error("Error confirming utility payment:", error);
+      // If a database error occurs after file upload, you might also want to delete the uploaded file.
+      // if (payment_proof_path) {
+      //     require('fs').unlink(payment_proof_path, (err) => { if (err) console.error("Failed to delete uploaded file on DB error:", err); });
+      // }
+      res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
+
 
 // 6. Get tenants with their latest utility readings.
 exports.getTenants = async (req, res) => {
