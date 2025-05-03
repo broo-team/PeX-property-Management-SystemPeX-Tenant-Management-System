@@ -76,7 +76,6 @@ exports.getMaintenanceRequests = async (req, res) => {
   }
 };
 
-
 // Update a maintenance request based on an action type.
 exports.updateMaintenanceRequest = async (req, res) => {
   try {

@@ -2,7 +2,7 @@
 const db = require("../db/connection");
 const moment = require("moment");
 
-const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss";
+const DATE_FORMAT = "YYYY-MM-DD";
 exports.getBills = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -441,6 +441,8 @@ exports.terminateNewTenants = async (req, res) => {
     res.status(500).json({ message: "Server error during tenant termination." });
   }
 };
+
+
 exports.getBillById = async (req, res) => {
   try {
     const billId = req.params.id;

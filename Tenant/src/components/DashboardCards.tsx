@@ -94,9 +94,9 @@ export default function DashboardCards() {
     try {
       const response = await axios.get(`http://localhost:5000/api/maintenance`);
       const tenantRequests = response.data.filter(
-        (request) => request.tenant_id === user.tenant?.id
+        (request) => String(request.tenant_id) === String(user.tenant?.id)
       );
-      setMaintenanceRequests(tenantRequests);
+      setMaintenanceRequests(tenantRequests); // ✅ fixed
     } catch (error) {
       toast({
         title: "Error",
@@ -107,7 +107,7 @@ export default function DashboardCards() {
       setIsLoading(prev => ({ ...prev, maintenance: false }));
     }
   };
-
+  
   useEffect(() => {
     fetchLeasePayments();
     fetchUtilityBills();
@@ -223,7 +223,9 @@ export default function DashboardCards() {
 
 <Card className="bg-gradient-to-br from-emerald-300 to-emerald-400 shadow-xl hover:shadow-emerald-200/60 transition-all duration-300 rounded-2xl">
   <CardHeader className="flex flex-row items-center justify-between pb-2">
-    <CardTitle className="text-sm font-semibold text-white tracking-wide">Pending Maintenance</CardTitle>
+    <CardTitle className="text-sm font-semibold text-white tracking-wide">
+      Pending Maintenance
+    </CardTitle>
     <Tool className="h-5 w-5 text-white drop-shadow-sm" />
   </CardHeader>
   <CardContent>
@@ -235,6 +237,7 @@ export default function DashboardCards() {
           <span className="bg-gradient-to-r from-orange-100 via-white to-orange-300 bg-clip-text text-transparent drop-shadow-sm">
             {
               maintenanceRequests.filter(request => 
+                typeof request.status === 'string' &&
                 ['pending', 'owner pending'].includes(request.status.toLowerCase())
               ).length
             }
@@ -245,7 +248,6 @@ export default function DashboardCards() {
     </div>
   </CardContent>
 </Card>
-
       </div>
 
       <div className="mt-6">

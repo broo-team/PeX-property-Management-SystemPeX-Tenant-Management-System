@@ -298,11 +298,13 @@ export function Maintenance() {
                       <p>{request.issueDescription}</p>
                       {request.status === 'Resolved' && !request.tenantApproved && (
                         <Button
-                          onClick={() => handleTenantApproval(request.id)}
-                          className="bg-purple-600 hover:bg-purple-700 text-white mt-4"
-                        >
-                          Approve Resolution
-                        </Button>
+                        onClick={() => handleTenantApproval(request.id)}
+                        style={{ backgroundColor: '#3835ff' }}
+                        className="hover:brightness-90 text-white mt-4"
+                      >
+                        Approve Resolution
+                      </Button>
+                      
                       )}
                     </CardContent>
                   </Card>

@@ -9,7 +9,7 @@ import { useAuth } from "../../context/AuthContext"; // Import useAuth
 // Base API URL.
 const API_BASE = "http://localhost:5000/api";
 // Date format constant.
-const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss";
+const DATE_FORMAT = "YYYY-MM-DD";
 
 // Utility: Format currency.
 const formatCurrency = (value) => `${parseFloat(value).toFixed(2)} Birr`;
