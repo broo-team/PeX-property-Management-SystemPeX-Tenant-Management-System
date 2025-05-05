@@ -304,7 +304,6 @@ export function Maintenance() {
                       >
                         Approve Resolution
                       </Button>
-                      
                       )}
                     </CardContent>
                   </Card>

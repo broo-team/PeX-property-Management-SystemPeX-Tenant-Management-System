@@ -1,11 +1,11 @@
 // src/Modal/BuildingRegistrationForm.tsx
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent, FormEvent } from 'react'; // Import ChangeEvent and FormEvent
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
-import axiosInstance from "../services/authService";
+import axiosInstance from "../services/authService"; // Assuming this is correctly configured
 
 interface BuildingRegistrationFormProps {
   onSuccess: () => void;
@@ -13,9 +13,10 @@ interface BuildingRegistrationFormProps {
 }
 
 const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onSuccess, onCancel }) => {
-  // State declarations (unchanged from original)
+  // State declarations
   const [buildingName, setBuildingName] = useState('');
-  const [buildingImage, setBuildingImage] = useState('');
+  // Change this state to hold a File object or null
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [buildingAddress, setBuildingAddress] = useState('');
   const [location, setLocation] = useState('');
   const [propertyType, setPropertyType] = useState('');
@@ -24,11 +25,27 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
   const [ownerAddress, setOwnerAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+
+  // Handle file selection
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      // Select the first file
+      setSelectedImage(e.target.files[0]);
+      // Clear image-related error if a file is selected
+      setErrors(prev => ({ ...prev, buildingImage: '' }));
+    } else {
+      setSelectedImage(null);
+    }
+  };
+
+
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
     // Basic presence validation based on your backend's check
     if (!buildingName) newErrors.buildingName = "Building name is required.";
-    if (!buildingImage) newErrors.buildingImage = "Building image URL is required.";
+    // Validate that a file has been selected
+    if (!selectedImage) newErrors.buildingImage = "Building image is required.";
     if (!buildingAddress) newErrors.buildingAddress = "Building address is required.";
     if (!location) newErrors.location = "Location is required.";
     if (!propertyType) newErrors.propertyType = "Property type is required.";
@@ -39,58 +56,56 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // Validation and submit logic (unchanged from original)
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrors({}); // Clear previous errors
-
+  
     if (!validateForm()) {
       toast.error("Please fill in all required fields correctly.");
       return;
     }
-
+  
     setIsSubmitting(true);
     const loadingToast = toast.loading("Registering property...");
-
-    // Data structure must match backend's expected req.body
-    const buildingData = {
-      buildingName,
-      buildingImage,
-      buildingAddress,
-      location, // Use 'location' key as per backend
-      propertyType,
-      ownerEmail,
-      ownerPhone,
-      ownerAddress,
-    };
-
+  
+    const formData = new FormData();
+  
+    // ✅ Correct: Append text fields using snake_case keys
+    formData.append('buildingName', buildingName); // Use unique key for building name
+    formData.append('building_address', buildingAddress);
+    formData.append('location', location);
+    formData.append('property_type', propertyType);
+    formData.append('owner_email', ownerEmail);
+    formData.append('owner_phone', ownerPhone);
+    formData.append('owner_address', ownerAddress);
+  
+    // ✅ Append the file under 'buildingImage' (as expected by multer)
+    if (selectedImage) {
+      formData.append('buildingImage', selectedImage);  // Ensure this matches multer's field name
+    }
+  
     try {
-      // Make POST request to the backend endpoint
-      // Assumes your router is mounted under /api in your main Express app
-      const response = await axiosInstance.post('/api/buildings', buildingData);
-
-      console.log("Registration Response:", response.data);
-
-      // Check for 201 Created status upon successful registration
+      const response = await axiosInstance.post('/api/buildings', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',  // This is essential for file uploads
+        },
+      });
+  
       if (response.status === 201) {
         toast.success("Property registered successfully", { id: loadingToast });
-        onSuccess(); // Call the parent success handler to close modal and refresh list
+        onSuccess();
       } else {
-         // This block might catch unexpected non-error responses, though 201 is expected for success
-         toast.error(response.data?.message || "Registration failed with unexpected response.", { id: loadingToast });
+        toast.error(response.data?.message || "Registration failed with unexpected response.", { id: loadingToast });
       }
-
     } catch (error: any) {
       console.error("Error registering building:", error.response?.data || error);
-      // Display specific backend error message if available
       const errorMessage = error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred during registration.";
       toast.error(errorMessage, { id: loadingToast });
     } finally {
       setIsSubmitting(false);
     }
   };
-
+  
   const propertyTypes = ["Residential", "Commercial", "Industrial", "Mixed-Use", "Other"];
 
   return (
@@ -106,14 +121,14 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
             <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-l-4 border-blue-500 pl-3">
               Building Information
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Name</Label>
-                <Input 
+                <Label htmlFor="buildingName" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Name</Label>
+                <Input
                   id="buildingName"
                   className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                  value={buildingName} 
+                  value={buildingName}
                   onChange={(e) => setBuildingName(e.target.value)}
                 />
                 {errors.buildingName && (
@@ -124,15 +139,15 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Property Type</Label>
+                <Label htmlFor="propertyType" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Property Type</Label>
                 <Select value={propertyType} onValueChange={setPropertyType}>
-                  <SelectTrigger className="rounded-lg border-gray-300 hover:border-blue-300 focus:ring-2 focus:ring-blue-200">
+                  <SelectTrigger id="propertyType" className="rounded-lg border-gray-300 hover:border-blue-300 focus:ring-2 focus:ring-blue-200">
                     <SelectValue placeholder="Select property type" />
                   </SelectTrigger>
                   <SelectContent className="rounded-lg shadow-lg border border-gray-200 mt-1">
                     {propertyTypes.map(type => (
-                      <SelectItem 
-                        key={type} 
+                      <SelectItem
+                        key={type}
                         value={type}
                         className="hover:bg-blue-50/50 focus:bg-blue-50/50 transition-colors"
                       >
@@ -148,15 +163,19 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
                 )}
               </div>
 
+              {/* Building Image File Input */}
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Image URL</Label>
-                <Input 
+                <Label htmlFor="buildingImage" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Image</Label>
+                <Input
                   id="buildingImage"
-                  type="text"
-                  className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                  value={buildingImage}
-                  onChange={(e) => setBuildingImage(e.target.value)}
+                  type="file" // Changed to file input
+                  accept="image/*" // Suggest image files
+                  className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300 dark:hover:file:bg-blue-800"
+                  onChange={handleFileChange} // Use new handler
                 />
+                 {selectedImage && (
+                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Selected file: {selectedImage.name}</p>
+                 )}
                 {errors.buildingImage && (
                   <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                     <span>⚠️</span>{errors.buildingImage}
@@ -165,8 +184,8 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Location (City/Area)</Label>
-                <Input 
+                <Label htmlFor="location" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Location (City/Area)</Label>
+                <Input
                   id="location"
                   className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                   value={location}
@@ -180,8 +199,8 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
               </div>
 
               <div className="md:col-span-2">
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Address</Label>
-                <Input 
+                <Label htmlFor="buildingAddress" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Building Address</Label>
+                <Input
                   id="buildingAddress"
                   className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
                   value={buildingAddress}
@@ -201,10 +220,10 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
             <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-l-4 border-purple-500 pl-3">
               Owner Information
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Email</Label>
+                <Label htmlFor="ownerEmail" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Email</Label>
                 <Input
                   id="ownerEmail"
                   type="email"
@@ -220,7 +239,7 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Phone</Label>
+                <Label htmlFor="ownerPhone" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Phone</Label>
                 <Input
                   id="ownerPhone"
                   type="tel"
@@ -236,7 +255,7 @@ const BuildingRegistrationForm: React.FC<BuildingRegistrationFormProps> = ({ onS
               </div>
 
               <div className="md:col-span-2">
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Address</Label>
+                <Label htmlFor="ownerAddress" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Owner Address</Label>
                 <Input
                   id="ownerAddress"
                   className="rounded-lg border-gray-300 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"

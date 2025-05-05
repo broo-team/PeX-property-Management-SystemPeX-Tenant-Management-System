@@ -1,7 +1,7 @@
 // src/Pages/Properties.tsx
 import React, { useState, useEffect, useMemo } from "react";
-import Navbar from "../Pages/Navbar";
-import Sidebar from "../Pages/Sidebar";
+import Navbar from "../Pages/Navbar"; // Adjust path as needed
+import Sidebar from "../Pages/Sidebar"; // Adjust path as needed
 import axiosInstance from "../services/authService";
 import { toast } from "sonner";
 import {
@@ -58,7 +58,7 @@ import { format } from "date-fns";
 interface Building {
   id: number;
   building_name: string;
-  building_image: string;
+  building_image: string; // This is the path from the backend (e.g., 'uploads/buildings/...')
   building_address: string;
   location: string;
   property_type: string;
@@ -71,6 +71,7 @@ interface Building {
   status: 'pending' | 'active' | 'expired';
   start_date: string | null;
   end_date: string | null;
+  // owner_password: string; // You might fetch this if needed, but usually not
 }
 
 // Helper to display the derived status
@@ -78,6 +79,9 @@ const getDisplayStatus = (building: Building): "Active" | "Suspended" | "Pending
   if (building.suspended === 1) return "Suspended";
   switch (building.status) {
     case 'active':
+      // Add date check here if 'active' should become 'expired' automatically client-side
+      // based on current date vs end_date.
+      // For example: if (building.end_date && new Date(building.end_date) < new Date()) return "Expired";
       return "Active";
     case 'expired':
       return "Expired";
@@ -103,7 +107,9 @@ const getStatusBadgeConfig = (status: ReturnType<typeof getDisplayStatus>) => {
   }
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Define your backend API URL
+// IMPORTANT: Ensure this matches the port your backend is running on (was 5000 in app.js)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const Properties = () => {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -113,41 +119,37 @@ const Properties = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const itemsPerPage = 5;
-
+  // State to control the Reset Password AlertDialog
   const [resetPasswordId, setResetPasswordId] = useState<number | null>(null);
-
+  // State to indicate which building is currently undergoing a status update (for loading spinners)
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
-
   // State for Activation Modal
   const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
   const [buildingToActivate, setBuildingToActivate] = useState<Building | null>(null);
   const [activationStartDate, setActivationStartDate] = useState<Date | undefined>(undefined);
   const [activationEndDate, setActivationEndDate] = useState<Date | undefined>(undefined);
   const [isActivating, setIsActivating] = useState(false);
-
-  // --- New State for Suspension Modal ---
+  // State for Suspension Modal
   const [isSuspensionModalOpen, setIsSuspensionModalOpen] = useState(false);
   const [buildingToSuspend, setBuildingToSuspend] = useState<Building | null>(null);
   const [suspensionReason, setSuspensionReason] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
-  // --- End New State ---
-
 
   const fetchProperties = async () => {
     setIsLoading(true);
-    const loadingToast = toast.loading("Fetching properties...");
+     // Use a persistent toast ID for updating
+    const loadingToastId = toast.loading("Fetching properties...");
     try {
       // Ensure your backend returns status, start_date, end_date, suspended, AND suspension_reason
       const response = await axiosInstance.get("/api/buildings");
-
       console.log("API Response:", response.data);
 
       if (response.data?.buildings && Array.isArray(response.data.buildings)) {
         const fetchedBuildings: Building[] = response.data.buildings.map((b: any) => ({
           id: b.id,
           building_name: b.building_name,
-          building_image: b.building_image,
+          building_image: b.building_image, // This path comes from the DB (e.g., 'uploads/buildings/...')
           building_address: b.building_address,
           location: b.location,
           property_type: b.property_type,
@@ -163,18 +165,20 @@ const Properties = () => {
         }));
         setBuildings(fetchedBuildings);
         toast.success("Properties loaded successfully", {
-          id: loadingToast,
+          id: loadingToastId,
+          duration: 3000 // Keep success toast visible for a bit
         });
       } else {
         console.error("Invalid response format:", response.data);
         toast.error("Failed to load properties", {
-          id: loadingToast,
+          id: loadingToastId,
           description: "Invalid data format received from the API.",
         });
       }
     } catch (error) {
       console.error("Error fetching buildings:", error);
       toast.error("Failed to fetch properties", {
+        id: loadingToastId,
         description: "Please try again later",
       });
     } finally {
@@ -200,11 +204,21 @@ const Properties = () => {
 
   const filteredBuildings = useMemo(() => {
     return buildings.filter((building) => {
+       // Convert potentially null fields to empty string for includes() check
+      const buildingName = building.building_name || '';
+      const location = building.location || '';
+      const ownerEmail = building.owner_email || '';
+      const ownerPhone = building.owner_phone || '';
+
+      const lowerSearch = search.toLowerCase();
+
       const matchesSearch =
-        building.building_name?.toLowerCase().includes(search.toLowerCase()) ||
-        building.id?.toString().includes(search.toLowerCase()) ||
-        building.location?.toLowerCase().includes(search.toLowerCase()) ||
-        building.owner_email?.toLowerCase().includes(search.toLowerCase());
+        buildingName.toLowerCase().includes(lowerSearch) ||
+        building.id?.toString().includes(lowerSearch) || // Ensure ID is treated as string for search
+        location.toLowerCase().includes(lowerSearch) ||
+        ownerEmail.toLowerCase().includes(lowerSearch) ||
+        ownerPhone.toLowerCase().includes(lowerSearch);
+
 
       const displayStatus = getDisplayStatus(building);
       const matchesStatus =
@@ -229,36 +243,45 @@ const Properties = () => {
     });
   };
 
+  // --- Updated handleResetPassword Function ---
   const handleResetPassword = async (buildingId: number) => {
-    console.warn("Reset Password: Backend endpoint /api/buildings/:id/reset-password is required for this feature.");
-    const loadingToast = toast.loading("Attempting to reset password...");
+    console.log(`Attempting to reset password for building ID: ${buildingId}`);
+    setUpdatingStatus(buildingId); // Indicate update for this building
+    const loadingToastId = toast.loading("Attempting to reset password...");
     try {
+      // Call the backend endpoint for password reset
+      // We are using POST here to match the route defined in routes/buildings.js
       const response = await axiosInstance.post(
         `/api/buildings/${buildingId}/reset-password`
+        // No request body is needed for this specific reset action as default is hardcoded
       );
-
       if (response.status === 200) {
-        toast.success("Password reset requested", {
-          id: loadingToast,
-          description: response.data?.message || "Password reset process initiated.",
+        toast.success("Password reset successful", {
+          id: loadingToastId,
+          description: response.data?.message || "Owner password has been reset to the default.",
         });
-        setResetPasswordId(null);
+        // No need to update local state as password isn't displayed or stored here
+        setResetPasswordId(null); // Close the AlertDialog
       } else {
-        toast.error("Failed to request password reset", {
-          id: loadingToast,
-          description: response.data?.message || "An unexpected error occurred.",
+         // This block might be hit if the backend returns a non-200 status but not an error
+         // Based on the backend code, errors will likely throw, but adding this for robustness
+        toast.error("Failed to reset password", {
+          id: loadingToastId,
+          description: response.data?.message || "An unexpected issue occurred.",
         });
       }
 
     } catch (error: any) {
-      console.error("Error requesting password reset:", error.response?.data || error);
+      console.error("Error resetting password:", error.response?.data || error);
       toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
-        id: loadingToast,
+        id: loadingToastId,
       });
+    } finally {
+       setUpdatingStatus(null); // Clear updating status
     }
   };
+  // --- End Updated handleResetPassword Function ---
 
-  // --- Modified Suspend Logic ---
 
   // Function to open the suspension modal
   const handleOpenSuspensionModal = (building: Building) => {
@@ -270,7 +293,6 @@ const Properties = () => {
   // Function to handle confirming suspension from the modal
   const handleConfirmSuspend = async () => {
     if (!buildingToSuspend) return;
-
     // Optional: Basic validation for reason length if mandatory
     // if (!suspensionReason.trim()) {
     //     toast.error("Suspension reason cannot be empty.");
@@ -279,15 +301,13 @@ const Properties = () => {
 
     setIsSuspending(true);
     setUpdatingStatus(buildingToSuspend.id); // Indicate update for this building
-    const loadingToast = toast.loading(`Suspending building ${buildingToSuspend.building_name}...`);
-
+    const loadingToastId = toast.loading(`Suspending building ${buildingToSuspend.building_name}...`);
     try {
       // Call the backend suspend endpoint with the reason
       const response = await axiosInstance.put(
         `/api/buildings/suspend/${buildingToSuspend.id}`,
         { suspension_reason: suspensionReason } // <-- Send the reason in the body
       );
-
       console.log("Suspend response:", response.data);
 
       if (response.status === 200) {
@@ -299,16 +319,16 @@ const Properties = () => {
               : building
           )
         );
-        toast.success("Property suspended successfully", { id: loadingToast });
+        toast.success("Property suspended successfully", { id: loadingToastId });
         setIsSuspensionModalOpen(false); // Close modal
         setBuildingToSuspend(null); // Clear selected building
       } else {
-        toast.error(response.data?.message || "Failed to suspend property", { id: loadingToast });
+        toast.error(response.data?.message || "Failed to suspend property", { id: loadingToastId });
       }
     } catch (error: any) {
       console.error("Error suspending building:", error.response?.data || error);
       toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
-        id: loadingToast,
+        id: loadingToastId,
       });
     } finally {
       setIsSuspending(false);
@@ -316,18 +336,17 @@ const Properties = () => {
     }
   };
 
-  // --- Modified Activate Logic (Keep this) ---
-
+  // Modified Activate Logic (Keep this)
   const handleOpenActivationModal = (building: Building) => {
       setBuildingToActivate(building);
-      setActivationStartDate(undefined);
-      setActivationEndDate(undefined);
+      // Ensure dates are valid before creating Date objects
+      setActivationStartDate(building.start_date && !isNaN(Date.parse(building.start_date)) ? new Date(building.start_date) : undefined);
+      setActivationEndDate(building.end_date && !isNaN(Date.parse(building.end_date)) ? new Date(building.end_date) : undefined);
       setIsActivationModalOpen(true);
   };
 
   const handleActivateWithDates = async () => {
     if (!buildingToActivate) return;
-
     if (!activationStartDate || !activationEndDate) {
       toast.error("Please select both start and end dates.");
       return;
@@ -339,18 +358,17 @@ const Properties = () => {
     }
 
     setIsActivating(true);
-     setUpdatingStatus(buildingToActivate.id); // Indicate update for this building
-    const loadingToast = toast.loading(`Activating building ${buildingToActivate.building_name}...`);
-
+    setUpdatingStatus(buildingToActivate.id); // Indicate update for this building
+    const loadingToastId = toast.loading(`Activating building ${buildingToActivate.building_name}...`);
     try {
       const response = await axiosInstance.patch(
         `/api/buildings/${buildingToActivate.id}/activate`,
         {
           start_date: format(activationStartDate, 'yyyy-MM-dd'),
           end_date: format(activationEndDate, 'yyyy-MM-dd'),
+          // The backend activate route expects these dates to set status to 'active'
         }
       );
-
       console.log("Activate response:", response.data);
 
       if (response.status === 200) {
@@ -359,8 +377,8 @@ const Properties = () => {
             building.id === buildingToActivate.id
               ? {
                   ...building,
-                  status: 'active',
-                  suspended: 0 as 0 | 1,
+                  status: 'active', // Backend sets status to 'active'
+                  suspended: 0 as 0 | 1, // Backend sets suspended to 0
                   suspension_reason: null, // <-- Clear reason on activation
                   start_date: format(activationStartDate, 'yyyy-MM-dd'),
                   end_date: format(activationEndDate, 'yyyy-MM-dd'),
@@ -368,16 +386,16 @@ const Properties = () => {
               : building
           )
         );
-        toast.success("Property activated successfully", { id: loadingToast });
+        toast.success("Property activated successfully", { id: loadingToastId });
         setIsActivationModalOpen(false);
         setBuildingToActivate(null);
       } else {
-        toast.error(response.data?.message || "Failed to activate property", { id: loadingToast });
+        toast.error(response.data?.message || "Failed to activate property", { id: loadingToastId });
       }
     } catch (error: any) {
       console.error("Error activating building:", error.response?.data || error);
       toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
-        id: loadingToast,
+        id: loadingToastId,
       });
     } finally {
       setIsActivating(false);
@@ -385,14 +403,12 @@ const Properties = () => {
     }
   };
 
-
   const StatusBadge = ({
     status,
   }: {
     status: ReturnType<typeof getDisplayStatus>;
   }) => {
     const config = getStatusBadgeConfig(status);
-
     return (
       <span
         className={`
@@ -417,31 +433,36 @@ const Properties = () => {
 
     const actions = [];
 
-    if (displayStatus === "Active") {
-        // Change the action to open the suspension modal
-        actions.push({ label: "Suspend Property", action: () => handleOpenSuspensionModal(currentBuilding) });
-    } else { // Pending, Suspended, Expired
-         // Offer Activate if not Active (and not currently being activated/suspended)
-         if (currentBuilding.status === 'pending' || currentBuilding.status === 'expired' || currentBuilding.suspended === 1) {
-              actions.push({ label: "Activate Property", action: () => handleOpenActivationModal(currentBuilding) });
-         }
-         // If Suspended, you might also want an "Unsuspend" option that doesn't require dates
-         // For simplicity, we are assuming Activate handles setting suspended=0.
+    // Determine available actions based on display status and suspended flag
+    if (displayStatus === "Active" || displayStatus === "Expired") {
+        // Offer Suspend if Active or Expired (and not currently suspended)
+        if (currentBuilding.suspended !== 1) {
+             actions.push({ label: "Suspend Property", action: () => handleOpenSuspensionModal(currentBuilding) });
+        }
+
+    } else { // Pending or Suspended
+         // Offer Activate if Pending or Suspended
+         actions.push({ label: "Activate Property", action: () => handleOpenActivationModal(currentBuilding) });
     }
+
+    // You might add other actions here, like "View Details", "View Tenants", etc.
+    // actions.push({ label: "View Details", action: () => console.log('View details', currentBuilding.id) });
 
 
     return (
       <div className="flex items-center justify-between">
         <StatusBadge status={displayStatus} />
-        {(actions.length > 0 && updatingStatus !== currentBuilding.id) && ( // Only show dropdown if actions exist and not currently updating
+        {/* Only show dropdown if actions exist and not currently updating */}
+        {(actions.length > 0 && updatingStatus !== currentBuilding.id) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 className="h-8 w-8 p-0 ml-2"
-                disabled={updatingStatus === currentBuilding.id}
+                disabled={updatingStatus === currentBuilding.id} // Disable button while updating
               >
                  <MoreHorizontal className="h-4 w-4" />
+                 <span className="sr-only">More actions</span>{/* Accessible label */}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -468,29 +489,41 @@ const Properties = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           {/* Building Image */}
-          {building.building_image && (
+          {/* Check if building_image path exists before rendering */}
+          {building.building_image ? (
              <div className="col-span-full mb-4">
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
                 Building Image
               </h4>
               <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+               {/* FIX: Corrected the image source URL construction */}
+               {/* Use API_URL followed by the path returned from the backend */}
+               {/* Ensure forward slashes for URL consistency */}
                <img
-                  src={building.building_image.startsWith('http')
-                    ? building.building_image
-                    : `${API_URL}${building.building_image}`
-                   }
+                  src={`${API_URL}/${building.building_image.replace(/\\/g, '/')}`}
                   alt={`${building.building_name} image`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.error('Image failed to load:', building.building_image, 'Attempted URL:', building.building_image.startsWith('http')
-                     ? building.building_image
-                     : `${API_URL}${building.building_image}`);
-                    e.currentTarget.src = '/placeholder-image.png';
+                  className="w-full h-full object-cover rounded-lg" // Apply rounded-lg here
+                  onError={(e: any) => {
+                     console.error('Image failed to load:', building.building_image, 'Attempted URL:', `${API_URL}/${building.building_image.replace(/\\/g, '/')}`);
+                    // Fallback to a placeholder image if the original fails
+                    e.target.onerror = null; // Prevent infinite error loops
+                    e.target.src = 'https://placehold.co/400x200/e0e0e0/333333?text=Image+Not+Available'; // Example placeholder
                   }}
                  />
               </div>
              </div>
+           ) : (
+             // Placeholder if no image is available
+             <div className="col-span-full mb-4">
+               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                 Building Image
+               </h4>
+               <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                No Image Available
+               </div>
+             </div>
            )}
+
 
           <div className="space-y-2">
             <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -499,15 +532,16 @@ const Properties = () => {
             <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
               <p>
                 <span className="font-medium text-gray-900 dark:text-white">Address:</span>
-                {building.building_address}
+                {building.building_address || 'N/A'} {/* Added N/A fallback */}
               </p>
               <p>
-                <span className="font-medium text-gray-900 dark:text-white">Location:</span> {building.location}
+                <span className="font-medium text-gray-900 dark:text-white">Location:</span> {building.location || 'N/A'} {/* Added N/A fallback */}
               </p>
                <p>
-                <span className="font-medium text-gray-900 dark:text-white">Property Type:</span> {building.property_type}
+                <span className="font-medium text-gray-900 dark:text-white">Property Type:</span> {building.property_type || 'N/A'} {/* Added N/A fallback */}
                </p>
-              <p>
+               {/* Display the raw status from DB for debugging/information */}
+               <p>
                  <span className="font-medium text-gray-900 dark:text-white">DB Status:</span> {building.status}
               </p>
                <p>
@@ -516,22 +550,23 @@ const Properties = () => {
                {/* Display Suspension Reason if suspended */}
                {building.suspended === 1 && building.suspension_reason && (
                    <p className="text-red-600 dark:text-red-400"> {/* Highlight the reason */}
-                     <span className="font-medium text-gray-900 dark:text-white">Suspension Reason:</span> {building.suspension_reason}
+                   <span className="font-medium text-gray-900 dark:text-white">Suspension Reason:</span> {building.suspension_reason}
                    </p>
                )}
 
                {(building.start_date || building.end_date) && (
                   <>
-                    <p>
-                       <span className="font-medium text-gray-900 dark:text-white">Start Date:</span> {building.start_date ? format(new Date(building.start_date), 'PPP') : 'N/A'}
+                   {/* Check for valid dates before formatting */}
+                   <p>
+                       <span className="font-medium text-gray-900 dark:text-white">Start Date:</span> {building.start_date && !isNaN(Date.parse(building.start_date)) ? format(new Date(building.start_date), 'PPP') : 'N/A'}
                     </p>
                      <p>
-                       <span className="font-medium text-gray-900 dark:text-white">End Date:</span> {building.end_date ? format(new Date(building.end_date), 'PPP') : 'N/A'}
+                       <span className="font-medium text-gray-900 dark:text-white">End Date:</span> {building.end_date && !isNaN(Date.parse(building.end_date)) ? format(new Date(building.end_date), 'PPP') : 'N/A'}
                      </p>
                   </>
                )}
               <p>
-               <span className="font-medium text-gray-900 dark:text-white">Created At:</span> {new Date(building.created_at).toLocaleDateString()}
+               <span className="font-medium text-gray-900 dark:text-white">Created At:</span> {building.created_at ? new Date(building.created_at).toLocaleDateString() : 'N/A'} {/* Added check */}
                </p>
             </div>
           </div>
@@ -544,31 +579,38 @@ const Properties = () => {
             <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
               <p>
                 <span className="font-medium text-gray-900 dark:text-white">Email:</span>
-                {building.owner_email}
+                {building.owner_email || 'N/A'} {/* Added N/A fallback */}
               </p>
               <p>
                 <span className="font-medium text-gray-900 dark:text-white">Phone:</span>
-                {building.owner_phone}
+                {building.owner_phone || 'N/A'} {/* Added N/A fallback */}
               </p>
                <p>
                 <span className="font-medium text-gray-900 dark:text-white">Address:</span>
-                {building.owner_address}
-               </p>
+                {building.owner_address || 'N/A'} {/* Added N/A fallback */}
+              </p>
             </div>
            </div>
 
-          {/* Action Buttons in Expanded View (Only Reset Password remains) */}
+          {/* Action Buttons in Expanded View (Reset Password) */}
           <div className="space-y-2 col-span-full flex gap-2 mt-4">
-             <Button
-               variant="outline"
-               size="sm"
-               onClick={(e) => {
-                 e.stopPropagation();
-                 setResetPasswordId(building.id);
-               }}
-             >
-               Reset Password
-             </Button>
+             {/* Show Reset Password only if not currently updating */}
+             {updatingStatus !== building.id && (
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={(e) => {
+                   e.stopPropagation(); // Prevent row collapse
+                   setResetPasswordId(building.id); // Open the AlertDialog
+                 }}
+               >
+                  Reset Password
+               </Button>
+              )}
+             {/* Show spinner if updatingStatus matches this building's ID */}
+             {updatingStatus === building.id && (
+                 <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+             )}
            </div>
 
         </div>
@@ -579,19 +621,23 @@ const Properties = () => {
   const handleRegistrationModal = () => {
     setIsRegistrationOpen(!isRegistrationOpen);
   };
-
   const handleRegistrationSuccess = () => {
     setIsRegistrationOpen(false);
-    fetchProperties();
+    fetchProperties(); // Refresh the list after successful registration
   };
-
   const handleRegistrationCancel = () => {
     setIsRegistrationOpen(false);
   };
 
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredBuildings.length / itemsPerPage);
+  const canGoNext = currentPage < totalPages - 1 && filteredBuildings.length > 0;
+  const canGoPrev = currentPage > 0;
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Ensure Navbar and Sidebar paths are correct */}
       <Navbar />
       <div className="flex">
         <Sidebar />
@@ -622,7 +668,7 @@ const Properties = () => {
               {/* Filters */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     placeholder="Search properties..."
                     value={search}
@@ -632,7 +678,7 @@ const Properties = () => {
                 </div>
                 {/* Status filter updated */}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
+                   <SelectTrigger>
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -648,7 +694,7 @@ const Properties = () => {
               {/* Table */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                 <Table>
-                  <TableHeader>
+                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Building ID</TableHead>
                       <TableHead>Building Name</TableHead>
@@ -673,17 +719,19 @@ const Properties = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                             <div className="flex flex-col">
+                            <div className="flex flex-col">
                                 <span>{building.owner_email}</span>
                                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                                   {building.owner_phone}
+                                  {building.owner_phone}
                                 </span>
                              </div>
-                           </TableCell>
+                          </TableCell>
                           <TableCell>
+                            {/* StatusCell contains the badge and dropdown */}
                             <StatusCell building={building} />
                           </TableCell>
                           <TableCell>
+                            {/* Chevron icon indicating expanded state */}
                             {expandedRows.has(building.id) ? (
                               <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                             ) : (
@@ -691,6 +739,7 @@ const Properties = () => {
                             )}
                           </TableCell>
                         </TableRow>
+                        {/* Expanded details row */}
                         {expandedRows.has(building.id) && (
                           <TableRow className="bg-gray-100 dark:bg-gray-800/50">
                             <TableCell colSpan={6} className="p-0">
@@ -699,14 +748,23 @@ const Properties = () => {
                           </TableRow>
                         )}
                       </React.Fragment>
-                      ))}
-                      {paginatedData.length === 0 && (
+                    ))}
+                      {/* Display message if no properties found after filtering/loading */}
+                      {paginatedData.length === 0 && !isLoading && (
                           <TableRow>
                               <TableCell colSpan={6} className="h-24 text-center text-gray-500 dark:text-gray-400">
-                                  No properties found.
+                                  No properties found matching the criteria.
                               </TableCell>
                           </TableRow>
                       )}
+                       {/* Display loading message */}
+                       {isLoading && (
+                           <TableRow>
+                              <TableCell colSpan={6} className="h-24 text-center text-gray-500 dark:text-gray-400">
+                                  Loading properties...
+                              </TableCell>
+                          </TableRow>
+                       )}
                   </TableBody>
                 </Table>
 
@@ -727,7 +785,7 @@ const Properties = () => {
                       onClick={() =>
                         setCurrentPage((prev) => Math.max(0, prev - 1))
                       }
-                      disabled={currentPage === 0}
+                      disabled={!canGoPrev || isLoading} // Disable if at first page or loading
                     >
                       Previous
                     </Button>
@@ -737,16 +795,12 @@ const Properties = () => {
                       onClick={() =>
                         setCurrentPage((prev) =>
                           Math.min(
-                            Math.ceil(filteredBuildings.length / itemsPerPage) -
-                              1,
+                            totalPages - 1, // Use totalPages for accurate boundary
                             prev + 1
                           )
                         )
                       }
-                      disabled={
-                        currentPage >=
-                        (Math.ceil(filteredBuildings.length / itemsPerPage) - 1) || filteredBuildings.length === 0
-                      }
+                      disabled={!canGoNext || isLoading} // Disable if at last page or loading
                     >
                       Next
                     </Button>
@@ -759,29 +813,31 @@ const Properties = () => {
       </div>
 
       {/* AlertDialog for Reset Password */}
+      {/* This AlertDialog is triggered when setResetPasswordId is called with a building ID */}
       <AlertDialog
-        open={!!resetPasswordId}
-        onOpenChange={() => setResetPasswordId(null)}
+        open={!!resetPasswordId} // Open if resetPasswordId is not null or undefined
+        onOpenChange={() => setResetPasswordId(null)} // Close when the dialog is dismissed by clicking outside or Cancel
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Property Password</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to reset the password for this property?
-              This action will reset the password associated with the property's owner/admin.
-              Please ensure the backend endpoint for this action is implemented.
+              Are you sure you want to reset the password for this property's owner?
+              This will set the password to the default "Pex123".
+              <br />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={updatingStatus === resetPasswordId}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (resetPasswordId !== null) {
                   handleResetPassword(resetPasswordId);
                 }
               }}
+              disabled={updatingStatus === resetPasswordId} // Disable action button while resetting
             >
-              Reset Password
+              {updatingStatus === resetPasswordId ? 'Resetting...' : 'Reset Password'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -790,6 +846,9 @@ const Properties = () => {
       {/* Dialog for adding a new property */}
       <Dialog open={isRegistrationOpen} onOpenChange={setIsRegistrationOpen}>
         <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+              <DialogTitle>Register New Property</DialogTitle>
+          </DialogHeader>
           <BuildingRegistrationForm
              onSuccess={handleRegistrationSuccess}
              onCancel={handleRegistrationCancel}
@@ -829,7 +888,7 @@ const Properties = () => {
                    </div>
 
                    {/* End Date Picker */}
-                    <div className="flex flex-col gap-2">
+                   <div className="flex flex-col gap-2">
                        <label className="text-sm font-medium leading-none">End Date</label>
                        <Popover>
                            <PopoverTrigger asChild>
@@ -846,7 +905,7 @@ const Properties = () => {
                                    mode="single"
                                    selected={activationEndDate}
                                    onSelect={setActivationEndDate}
-                                   disabled={(date) => activationStartDate ? date < activationStartDate : false}
+                                   disabled={(date) => activationStartDate ? date < activationStartDate : false} // Ensure end date is not before start date
                                    initialFocus
                                />
                            </PopoverContent>
@@ -862,7 +921,7 @@ const Properties = () => {
            </DialogContent>
        </Dialog>
 
-      {/* --- New Dialog for Suspending with Reason --- */}
+      {/* Dialog for Suspending with Reason */}
        <Dialog open={isSuspensionModalOpen} onOpenChange={setIsSuspensionModalOpen}>
            <DialogContent>
                <DialogHeader>
@@ -888,7 +947,6 @@ const Properties = () => {
                </DialogFooter>
            </DialogContent>
        </Dialog>
-      {/* --- End New Dialog --- */}
 
 
       <Toaster position="bottom-right" />

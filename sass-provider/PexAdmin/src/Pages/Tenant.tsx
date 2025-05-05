@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Navbar from "../Pages/Navbar"; // Assuming these paths are correct
-import Sidebar from "../Pages/Sidebar"; // Assuming these paths are correct
-import axiosInstance from "../services/authService"; // Assuming this is correctly configured
+import Navbar from "../Pages/Navbar";
+import Sidebar from "../Pages/Sidebar";
+import axiosInstance from "../services/authService";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -12,7 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Assuming shadcn/ui paths
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -20,121 +20,167 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"; // Assuming shadcn/ui paths
-import { Button } from "@/components/ui/button"; // Assuming shadcn/ui paths
-import { Input } from "@/components/ui/input"; // Assuming shadcn/ui paths
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // Assuming shadcn/ui paths
+} from "@/components/ui/select";
 import {
   Search,
   Plus,
   ChevronDown,
   ChevronUp,
-  Trash2,
-} from "lucide-react"; // Assuming lucide-react is installed
+  MoreHorizontal,
+  CalendarIcon,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Toaster } from "sonner";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Assuming shadcn/ui paths
+import BuildingRegistrationForm from "../Modal/BuildingRegistrationForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
-// Define the interface to match the provided tenant JSON structure
-interface Tenant {
+// Updated Building Interface
+interface Building {
   id: number;
-  tenant_id: string;
-  full_name: string;
-  sex: string | null;
-  phone: string | null;
-  city: string | null;
-  subcity: string | null;
-  woreda: string | null;
-  house_no: string | null;
-  price: string | null; // Rent price
-  payment_term: string | null;
-  deposit: string | null;
-  lease_start: string | null;
-  lease_end: string | null;
-  registered_by_agent: 0 | 1;
-  authentication_no: string | null; // Assuming related to agent
-  agent_first_name: string | null;
-  agent_sex: string | null;
-  agent_phone: string | null;
-  agent_city: string | null;
-  agent_subcity: string | null;
-  agent_woreda: string | null;
-  agent_house_no: string | null;
-  eeu_payment: 0 | 1; // 1 if included in rent, 0 if separate
-  generator_payment: 0 | 1; // 1 if included in rent, 0 if separate
-  water_payment: 0 | 1; // 1 if included in rent, 0 if separate
-  terminated: 0 | 1; // 0 for active, 1 for terminated
-  building_id: number;
+  building_name: string;
+  building_image: string;
+  building_address: string;
+  location: string;
+  property_type: string;
+  owner_email: string;
+  owner_phone: string;
+  owner_address: string;
+  suspended: 0 | 1;
+  suspension_reason: string | null;
   created_at: string;
-  rent_start_date: string | null; // Assuming actual rent start
-  rent_end_date: string | null; // Assuming actual rent end (might differ from lease end)
-  password?: string; // Included in JSON, but might not be used or displayed in UI
-  roomName: string | null; // The name/number of the room
-  monthlyRent: string | null; // Monthly rent amount
+  status: 'pending' | 'active' | 'expired';
+  start_date: string | null;
+  end_date: string | null;
 }
 
-// Helper function to map 'terminated' status to display string
-const getTenantStatus = (terminated: 0 | 1): "Active" | "Terminated" => {
-  return terminated === 0 ? "Active" : "Terminated";
-};
-
-// Helper function for date formatting
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "N/A";
-  try {
-    return new Date(dateString).toLocaleDateString();
-  } catch (error) {
-    console.error("Invalid date string:", dateString, error);
-    return "Invalid Date";
+// Helper to display the derived status
+const getDisplayStatus = (building: Building): "Active" | "Suspended" | "Pending" | "Expired" => {
+  if (building.suspended === 1) return "Suspended";
+  switch (building.status) {
+    case 'active':
+      return "Active";
+    case 'expired':
+      return "Expired";
+    case 'pending':
+    default:
+      return "Pending";
   }
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'; // Adjust if your API runs on 5000
+// Helper to determine Status Badge appearance
+const getStatusBadgeConfig = (status: ReturnType<typeof getDisplayStatus>) => {
+  switch (status) {
+    case "Active":
+      return { bg: "bg-green-100 dark:bg-green-900", text: "text-green-800 dark:text-green-300", dot: "bg-green-400 dark:bg-green-600" };
+    case "Suspended":
+      return { bg: "bg-red-100 dark:bg-red-900", text: "text-red-800 dark:text-red-300", dot: "bg-red-400 dark:bg-red-600" };
+    case "Pending":
+      return { bg: "bg-yellow-100 dark:bg-yellow-900", text: "text-yellow-800 dark:text-yellow-300", dot: "bg-yellow-400 dark:bg-yellow-600" };
+    case "Expired":
+      return { bg: "bg-orange-100 dark:bg-orange-900", text: "text-orange-800 dark:text-orange-300", dot: "bg-orange-400 dark:bg-orange-600" };
+    default:
+      return { bg: "bg-gray-100 dark:bg-gray-700", text: "text-gray-800 dark:text-gray-300", dot: "bg-gray-400 dark:bg-gray-600" };
+  }
+};
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const Tenants = () => {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const [search, setSearch] = useState("");
-  // Filter by termination status
-  const [statusFilter, setStatusFilter] = useState<string>("all"); // 'all', 'Active', 'Terminated'
-  const itemsPerPage = 10; // More items per page for tenants? Adjust as needed
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const itemsPerPage = 5;
 
-  const [deleteTenantId, setDeleteTenantId] = useState<number | null>(null);
+  const [resetPasswordId, setResetPasswordId] = useState<number | null>(null);
+
+  const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
 
-  const fetchTenants = async () => {
+  // State for Activation Modal
+  const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
+  const [buildingToActivate, setBuildingToActivate] = useState<Building | null>(null);
+  const [activationStartDate, setActivationStartDate] = useState<Date | undefined>(undefined);
+  const [activationEndDate, setActivationEndDate] = useState<Date | undefined>(undefined);
+  const [isActivating, setIsActivating] = useState(false);
+
+  // State for Suspension Modal
+  const [isSuspensionModalOpen, setIsSuspensionModalOpen] = useState(false);
+  const [buildingToSuspend, setBuildingToSuspend] = useState<Building | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [isSuspending, setIsSuspending] = useState(false);
+
+  // --- State for Tenant Counts ---
+  // Maps building ID to its tenant count, or loading/error state
+  const [tenantCounts, setTenantCounts] = useState<{ [buildingId: number]: number | 'loading' | 'error' | null }>({});
+  // --- End State ---
+
+  // --- State for Room Counts ---
+  // Maps building ID to its room count, or loading/error state
+  const [roomCounts, setRoomCounts] = useState<{ [buildingId: number]: number | 'loading' | 'error' | null }>({});
+  // --- End State ---
+
+
+  const fetchProperties = async () => {
     setIsLoading(true);
+    const loadingToast = toast.loading("Fetching properties...");
     try {
-      const loadingToast = toast.loading("Fetching tenants...");
-      const response = await axiosInstance.get(
-        "/api/tenants" // Assuming this is the correct endpoint
-      );
+      // Ensure your backend returns status, start_date, end_date, suspended, AND suspension_reason
+      const response = await axiosInstance.get("/api/buildings");
+      console.log("API Response:", response.data);
 
-      console.log("Tenants API Response:", response.data); // Debug log
-
-      // Assuming the response is an array of tenant objects directly
-      if (Array.isArray(response.data)) {
-        setTenants(response.data);
-        toast.success("Tenants loaded successfully", {
+      if (response.data?.buildings && Array.isArray(response.data.buildings)) {
+        const fetchedBuildings: Building[] = response.data.buildings.map((b: any) => ({
+          id: b.id,
+          building_name: b.building_name,
+          building_image: b.building_image,
+          building_address: b.building_address,
+          location: b.location,
+          property_type: b.property_type,
+          owner_email: b.owner_email,
+          owner_phone: b.owner_phone,
+          owner_address: b.owner_address,
+          suspended: b.suspended === 1 ? 1 : 0,
+          suspension_reason: b.suspension_reason, // <-- Include the new field
+          created_at: b.created_at,
+          status: b.status as 'pending' | 'active' | 'expired',
+          start_date: b.start_date,
+          end_date: b.end_date,
+        }));
+        setBuildings(fetchedBuildings);
+        toast.success("Properties loaded successfully", {
           id: loadingToast,
         });
       } else {
         console.error("Invalid response format:", response.data);
-        toast.error("Failed to load tenants", {
+        toast.error("Failed to load properties", {
           id: loadingToast,
           description: "Invalid data format received from the API.",
         });
       }
     } catch (error) {
-      console.error("Error fetching tenants:", error);
-      toast.error("Failed to fetch tenants", {
+      console.error("Error fetching buildings:", error);
+      toast.error("Failed to fetch properties", {
         description: "Please try again later",
       });
     } finally {
@@ -142,45 +188,108 @@ const Tenants = () => {
     }
   };
 
-  useEffect(() => {
-    fetchTenants();
-  }, []);
-
-  const toggleRow = (tenantId: number) => {
+  // --- Modified toggleRow to fetch tenant count and room count ---
+  const toggleRow = async (buildingId: number) => {
     setExpandedRows((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(tenantId)) {
-        newSet.delete(tenantId);
+      const isExpanded = newSet.has(buildingId);
+
+      if (isExpanded) {
+        newSet.delete(buildingId);
       } else {
-        newSet.add(tenantId);
+        newSet.add(buildingId);
+        // If expanding and count is not already fetched or loading
+        if (tenantCounts[buildingId] === undefined || tenantCounts[buildingId] === null) {
+          fetchTenantCount(buildingId);
+        }
+        if (roomCounts[buildingId] === undefined || roomCounts[buildingId] === null) {
+          fetchRoomCount(buildingId);
+        }
       }
       return newSet;
     });
   };
 
-  const filteredTenants = useMemo(() => {
-    return tenants.filter((tenant) => {
-      const matchesSearch =
-        tenant.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-        tenant.tenant_id?.toLowerCase().includes(search.toLowerCase()) ||
-        tenant.phone?.toLowerCase().includes(search.toLowerCase()) ||
-        tenant.city?.toLowerCase().includes(search.toLowerCase()) ||
-        tenant.roomName?.toLowerCase().includes(search.toLowerCase()) ||
-        tenant.id?.toString().includes(search.toLowerCase()); // Search by ID
+  // --- New function to fetch tenant count ---
+  const fetchTenantCount = async (buildingId: number) => {
+    setTenantCounts(prev => ({ ...prev, [buildingId]: 'loading' })); // Set loading state
+    try {
+      // Assuming a backend endpoint like /api/buildings/:id/tenants/count
+      const response = await axiosInstance.get(`/api/buildings/${buildingId}/tenants/count`);
+      console.log(`Tenant count for building ${buildingId}:`, response.data);
 
-      const tenantStatus = getTenantStatus(tenant.terminated);
+      if (response.data?.count !== undefined) {
+        setTenantCounts(prev => ({ ...prev, [buildingId]: response.data.count }));
+      } else {
+        console.error(`Invalid tenant count response for building ${buildingId}:`, response.data);
+        setTenantCounts(prev => ({ ...prev, [buildingId]: 'error' }));
+        toast.error(`Failed to get tenant count for building ${buildingId}`, {
+          description: "Invalid data format received.",
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching tenant count for building ${buildingId}:`, error);
+      setTenantCounts(prev => ({ ...prev, [buildingId]: 'error' }));
+      toast.error(`Failed to fetch tenant count for building ${buildingId}`, {
+        description: "Please try again later.",
+      });
+    }
+  };
+  // --- End new function ---
+
+  // --- New function to fetch room count ---
+  const fetchRoomCount = async (buildingId: number) => {
+    setRoomCounts(prev => ({ ...prev, [buildingId]: 'loading' })); // Set loading state
+    try {
+      // Assuming a backend endpoint like /api/buildings/:id/rooms/count
+      const response = await axiosInstance.get(`/api/buildings/${buildingId}/rooms/count`);
+      console.log(`Room count for building ${buildingId}:`, response.data);
+
+      if (response.data?.count !== undefined) {
+        setRoomCounts(prev => ({ ...prev, [buildingId]: response.data.count }));
+      } else {
+        console.error(`Invalid room count response for building ${buildingId}:`, response.data);
+        setRoomCounts(prev => ({ ...prev, [buildingId]: 'error' }));
+        toast.error(`Failed to get room count for building ${buildingId}`, {
+          description: "Invalid data format received.",
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching room count for building ${buildingId}:`, error);
+      setRoomCounts(prev => ({ ...prev, [buildingId]: 'error' }));
+      toast.error(`Failed to fetch room count for building ${buildingId}`, {
+        description: "Please try again later.",
+      });
+    }
+  };
+  // --- End new function ---
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const filteredBuildings = useMemo(() => {
+    return buildings.filter((building) => {
+      const matchesSearch =
+        building.building_name?.toLowerCase().includes(search.toLowerCase()) ||
+        building.id?.toString().includes(search.toLowerCase()) ||
+        building.location?.toLowerCase().includes(search.toLowerCase()) ||
+        building.owner_email?.toLowerCase().includes(search.toLowerCase()) ||
+        building.owner_phone?.toLowerCase().includes(search.toLowerCase()); // Added owner phone to search
+
+      const displayStatus = getDisplayStatus(building);
       const matchesStatus =
-        statusFilter === "all" || tenantStatus === statusFilter;
+        statusFilter === "all" || displayStatus === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [tenants, search, statusFilter]);
+  }, [buildings, search, statusFilter]);
 
   const paginatedData = useMemo(() => {
     const start = currentPage * itemsPerPage;
     const end = start + itemsPerPage;
-    return filteredTenants.slice(start, end);
-  }, [filteredTenants, currentPage]);
+    return filteredBuildings.slice(start, end);
+  }, [filteredBuildings, currentPage, itemsPerPage]);
 
   const resetFilters = () => {
     setSearch("");
@@ -191,66 +300,164 @@ const Tenants = () => {
     });
   };
 
-  // Note: This function assumes the backend endpoint is /api/tenants/{id} for DELETE
-  const handleDeleteTenant = async (tenantId: number) => {
-    const loadingToast = toast.loading("Deleting tenant...");
+  const handleResetPassword = async (buildingId: number) => {
+    console.warn("Reset Password: Backend endpoint /api/buildings/:id/reset-password is required for this feature.");
+    const loadingToast = toast.loading("Attempting to reset password...");
     try {
-      const response = await axiosInstance.delete(
-        `/api/tenants/${tenantId}` // Assuming DELETE endpoint is /api/tenants/{id}
+      const response = await axiosInstance.post(
+        `/api/buildings/${buildingId}/reset-password`
       );
-
-      if (response.data.error === false) { // Assuming a similar error structure as property deletion
-        setTenants((prevTenants) =>
-          prevTenants.filter((tenant) => tenant.id !== tenantId)
-        );
-
-        toast.success("Tenant deleted successfully", {
+      if (response.status === 200) {
+        toast.success("Password reset requested", {
           id: loadingToast,
+          description: response.data?.message || "Password reset process initiated.",
         });
-        setDeleteTenantId(null);
+        setResetPasswordId(null);
       } else {
-        toast.error("Failed to delete tenant", {
+        toast.error("Failed to request password reset", {
           id: loadingToast,
-          description: response.data.message || "An error occurred.",
+          description: response.data?.message || "An unexpected error occurred.",
         });
       }
+
     } catch (error: any) {
-      console.error("Error deleting tenant:", error);
-      toast.error("Failed to delete tenant", {
+      console.error("Error requesting password reset:", error.response?.data || error);
+      toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
         id: loadingToast,
-        description:
-          error.response?.data?.message || "An unexpected error occurred",
       });
     }
   };
 
-  // Adjusted StatusBadge for tenant status
-  const StatusBadge = ({
-    status,
-  }: {
-    status: "Active" | "Terminated";
-  }) => {
-    const statusConfig = {
-      Active: {
-        bg: "bg-green-100",
-        text: "text-green-800",
-        dot: "bg-green-400",
-      },
-      Terminated: { bg: "bg-red-100", text: "text-red-800", dot: "bg-red-400" },
-    };
+  // --- Modified Suspend Logic ---
 
-    const config = statusConfig[status];
+  // Function to open the suspension modal
+  const handleOpenSuspensionModal = (building: Building) => {
+      setBuildingToSuspend(building);
+      setSuspensionReason(''); // Clear reason when opening
+      setIsSuspensionModalOpen(true);
+  };
+  // Function to handle confirming suspension from the modal
+  const handleConfirmSuspend = async () => {
+    if (!buildingToSuspend) return;
 
+    setIsSuspending(true);
+    setUpdatingStatus(buildingToSuspend.id);
+    const loadingToast = toast.loading(`Suspending building ${buildingToSuspend.building_name}...`);
+    try {
+      // Call the backend suspend endpoint with the reason
+      const response = await axiosInstance.put(
+        `/api/buildings/suspend/${buildingToSuspend.id}`,
+        { suspension_reason: suspensionReason } // <-- Send the reason in the body
+      );
+      console.log("Suspend response:", response.data);
+
+      if (response.status === 200) {
+        // Update the building in the state with suspended=1 and the reason
+        setBuildings((prevBuildings) =>
+          prevBuildings.map((building) =>
+            building.id === buildingToSuspend.id
+              ? { ...building, suspended: 1 as 0 | 1, suspension_reason: suspensionReason }
+              : building
+          )
+        );
+        toast.success("Property suspended successfully", { id: loadingToast });
+        setIsSuspensionModalOpen(false); // Close modal
+        setBuildingToSuspend(null); // Clear selected building
+      } else {
+        toast.error(response.data?.message || "Failed to suspend property", { id: loadingToast });
+      }
+    } catch (error: any) {
+      console.error("Error suspending building:", error.response?.data || error);
+      toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
+        id: loadingToast,
+      });
+    } finally {
+      setIsSuspending(false);
+      setUpdatingStatus(null); // Clear updating status
+    }
+  };
+  // --- End Modified Suspend Logic ---
+
+
+  // --- Modified Activate Logic ---
+  const handleOpenActivationModal = (building: Building) => {
+      setBuildingToActivate(building);
+      setActivationStartDate(undefined);
+      setActivationEndDate(undefined);
+      setIsActivationModalOpen(true);
+  };
+
+  const handleActivateWithDates = async () => {
+    if (!buildingToActivate) return;
+    if (!activationStartDate || !activationEndDate) {
+      toast.error("Please select both start and end dates.");
+      return;
+    }
+
+    if (activationEndDate <= activationStartDate) {
+      toast.error("End date must be after the start date.");
+      return;
+    }
+
+    setIsActivating(true);
+    setUpdatingStatus(buildingToActivate.id); // Indicate update for this building
+    const loadingToast = toast.loading(`Activating building ${buildingToActivate.building_name}...`);
+    try {
+      const response = await axiosInstance.patch(
+        `/api/buildings/${buildingToActivate.id}/activate`,
+        {
+          start_date: format(activationStartDate, 'yyyy-MM-dd'),
+          end_date: format(activationEndDate, 'yyyy-MM-dd'),
+        }
+      );
+      console.log("Activate response:", response.data);
+
+      if (response.status === 200) {
+        setBuildings((prevBuildings) =>
+          prevBuildings.map((building) =>
+            building.id === buildingToActivate.id
+              ? {
+                  ...building,
+                  status: 'active',
+                  suspended: 0 as 0 | 1,
+                  suspension_reason: null, // <-- Clear reason on activation
+                  start_date: format(activationStartDate, 'yyyy-MM-dd'),
+                  end_date: format(activationEndDate, 'yyyy-MM-dd'),
+                }
+              : building
+          )
+        );
+        toast.success("Property activated successfully", { id: loadingToast });
+        setIsActivationModalOpen(false);
+        setBuildingToActivate(null);
+      } else {
+        toast.error(response.data?.message || "Failed to activate property", { id: loadingToast });
+      }
+    } catch (error: any) {
+      console.error("Error activating building:", error.response?.data || error);
+      toast.error(error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred", {
+        id: loadingToast,
+      });
+    } finally {
+      setIsActivating(false);
+      setUpdatingStatus(null); // Clear updating status
+    }
+  };
+  // --- End Modified Activate Logic ---
+
+  // Status Badge component
+  const StatusBadge = ({ status }: { status: ReturnType<typeof getDisplayStatus>; }) => {
+    const config = getStatusBadgeConfig(status);
     return (
       <span
         className={`
-          px-3 py-1 rounded-full text-sm inline-flex items-center
+          px-3 py-1 rounded-full text-xs font-medium inline-flex items-center
           ${config.bg} ${config.text}
         `}
       >
         <span
           className={`
-            w-2 h-2 rounded-full mr-2
+            w-2 h-2 rounded-full mr-1
             ${config.dot}
           `}
         ></span>
@@ -259,99 +466,215 @@ const Tenants = () => {
     );
   };
 
+  // Status Cell component with Dropdown
+  const StatusCell = ({ building }: { building: Building }) => {
+    const displayStatus = getDisplayStatus(building);
+    const currentBuilding = building;
 
-  // Render expanded details for a tenant
-  const renderExpandedDetails = (tenant: Tenant) => {
+    const actions = [];
+
+    // Add actions based on current status
+    if (displayStatus === "Active") {
+        // Change the action to open the suspension modal
+        actions.push({ label: "Suspend Property", action: () => handleOpenSuspensionModal(currentBuilding) });
+    } else { // Pending, Suspended, Expired
+         // Offer Activate if not Active (and not currently being activated/suspended)
+         if (currentBuilding.status === 'pending' || currentBuilding.status === 'expired' || currentBuilding.suspended === 1) {
+              actions.push({ label: "Activate Property", action: () => handleOpenActivationModal(currentBuilding) });
+         }
+    }
+
+    return (
+      <div className="flex items-center justify-between">
+        <StatusBadge status={displayStatus} />
+        {(actions.length > 0 && updatingStatus !== currentBuilding.id) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 ml-2"
+                disabled={updatingStatus === currentBuilding.id}
+              >
+                 <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {actions.map(({ label, action }) => (
+                <DropdownMenuItem key={label} onClick={action}>
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {/* Show spinner if updatingStatus matches this building's ID */}
+        {updatingStatus === currentBuilding.id && (
+             <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+         )}
+      </div>
+    );
+  };
+
+
+  // --- Modified renderExpandedDetails to show tenant count and room count ---
+  const renderExpandedDetails = (building: Building) => {
+    const tenantCount = tenantCounts[building.id];
+    const roomCount = roomCounts[building.id];
+
     return (
       <div className="p-4 bg-gray-50 dark:bg-gray-800/50">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-700 dark:text-gray-300">
-          <div className="space-y-1">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Personal Details</h4>
-            <p><span className="font-medium">Tenant ID:</span> {tenant.tenant_id}</p>
-            <p><span className="font-medium">Sex:</span> {tenant.sex || 'N/A'}</p>
-            <p><span className="font-medium">Phone:</span> {tenant.phone || 'N/A'}</p>
-             <p><span className="font-medium">Registered At:</span> {formatDate(tenant.created_at)}</p>
-             {tenant.password && (
-                <p><span className="font-medium text-orange-500">Password:</span> {tenant.password} <span className="text-xs text-gray-500">(Use with caution)</span></p>
-             )}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          <div className="space-y-1">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Location Details</h4>
-            <p><span className="font-medium">City:</span> {tenant.city || 'N/A'}</p>
-            <p><span className="font-medium">Subcity:</span> {tenant.subcity || 'N/A'}</p>
-            <p><span className="font-medium">Woreda:</span> {tenant.woreda || 'N/A'}</p>
-            <p><span className="font-medium">House No:</span> {tenant.house_no || 'N/A'}</p>
-             <p><span className="font-medium">Building ID:</span> {tenant.building_id}</p>
-          </div>
+          {/* Building Image */}
+          {building.building_image && (
+             <div className="col-span-full mb-4">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                Building Image
+              </h4>
+              <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+               <img
+                  src={building.building_image.startsWith('http')
+                    ? building.building_image
+                    : `${API_URL}${building.building_image}`
+                   }
+                  alt={`${building.building_name} image`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error('Image failed to load:', building.building_image, 'Attempted URL:', building.building_image.startsWith('http')
+                     ? building.building_image
+                     : `${API_URL}${building.building_image}`);
+                    e.currentTarget.src = '/placeholder-image.png'; // Fallback image
+                  }}
+                 />
+              </div>
+             </div>
+           )}
 
-          <div className="space-y-1">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Lease & Rent Details</h4>
-            <p><span className="font-medium">Monthly Rent:</span> {tenant.monthlyRent || tenant.price || 'N/A'}</p> {/* Use monthlyRent first, fallback to price */}
-            <p><span className="font-medium">Payment Term (Days):</span> {tenant.payment_term || 'N/A'}</p>
-            <p><span className="font-medium">Deposit:</span> {tenant.deposit || 'N/A'}</p>
-            <p><span className="font-medium">Lease Start:</span> {formatDate(tenant.lease_start)}</p>
-            <p><span className="font-medium">Lease End:</span> {formatDate(tenant.lease_end)}</p>
-             <p><span className="font-medium">Rent Start Date:</span> {formatDate(tenant.rent_start_date)}</p>
-             <p><span className="font-medium">Rent End Date:</span> {formatDate(tenant.rent_end_date)}</p>
-          </div>
-
-          <div className="space-y-1">
-             <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Utility Payments Included</h4>
-             <p>
-               <span className="font-medium">EEU Payment:</span>{" "}
-               {tenant.eeu_payment === 1 ? <span className="text-green-600">Included</span> : <span className="text-red-600">Separate</span>}
-             </p>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              Building Details
+            </h4>
+            <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
               <p>
-               <span className="font-medium">Generator Payment:</span>{" "}
-               {tenant.generator_payment === 1 ? <span className="text-green-600">Included</span> : <span className="text-red-600">Separate</span>}
-             </p>
+                <span className="font-medium text-gray-900 dark:text-white">Address:</span>
+                {building.building_address}
+              </p>
               <p>
-               <span className="font-medium">Water Payment:</span>{" "}
-               {tenant.water_payment === 1 ? <span className="text-green-600">Included</span> : <span className="text-red-600">Separate</span>}
-             </p>
+                <span className="font-medium text-gray-900 dark:text-white">Location:</span> {building.location}
+              </p>
+               <p>
+                <span className="font-medium text-gray-900 dark:text-white">Property Type:</span> {building.property_type}
+               </p>
+               <p>
+                 <span className="font-medium text-gray-900 dark:text-white">DB Status:</span> {building.status}
+              </p>
+               <p>
+                 <span className="font-medium text-gray-900 dark:text-white">Suspended Flag:</span> {building.suspended === 1 ? 'Yes' : 'No'}
+               </p>
+               {/* Display Suspension Reason if suspended */}
+               {building.suspended === 1 && building.suspension_reason && (
+                   <p className="text-red-600 dark:text-red-400"> {/* Highlight the reason */}
+                      <span className="font-medium text-gray-900 dark:text-white">Suspension Reason:</span> {building.suspension_reason}
+                   </p>
+               )}
+
+               {(building.start_date || building.end_date) && (
+                  <>
+                  <p>
+                       <span className="font-medium text-gray-900 dark:text-white">Start Date:</span> {building.start_date ? format(new Date(building.start_date), 'PPP') : 'N/A'}
+                    </p>
+                     <p>
+                       <span className="font-medium text-gray-900 dark:text-white">End Date:</span> {building.end_date ? format(new Date(building.end_date), 'PPP') : 'N/A'}
+                     </p>
+                  </>
+               )}
+              <p>
+               <span className="font-medium text-gray-900 dark:text-white">Created At:</span> {new Date(building.created_at).toLocaleDateString()}
+               </p>
+
+               {/* --- Display Room Count --- */}
+               <p>
+                 <span className="font-medium text-gray-900 dark:text-white">Number of Rooms:</span>{' '}
+                 {roomCount === 'loading' ? (
+                   <span className="text-gray-500 dark:text-gray-400">Loading...</span>
+                 ) : roomCount === 'error' ? (
+                   <span className="text-red-600 dark:text-red-400">Error fetching count</span>
+                 ) : typeof roomCount === 'number' ? (
+                   <span className="font-bold">{roomCount}</span>
+                 ) : (
+                   <span className="text-gray-500 dark:text-gray-400">N/A</span>
+                 )}
+               </p>
+               {/* --- End Display Room Count --- */}
+
+               {/* --- Display Tenant Count --- */}
+               <p>
+                 <span className="font-medium text-gray-900 dark:text-white">Number of Tenants:</span>{' '}
+                 {tenantCount === 'loading' ? (
+                   <span className="text-gray-500 dark:text-gray-400">Loading...</span>
+                 ) : tenantCount === 'error' ? (
+                   <span className="text-red-600 dark:text-red-400">Error fetching count</span>
+                 ) : typeof tenantCount === 'number' ? (
+                   <span className="font-bold">{tenantCount}</span>
+                 ) : (
+                   <span className="text-gray-500 dark:text-gray-400">N/A</span>
+                 )}
+               </p>
+               {/* --- End Display Tenant Count --- */}
+
+            </div>
           </div>
 
-
-          {tenant.registered_by_agent === 1 && (
-            <div className="space-y-1">
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Agent Details</h4>
-              <p><span className="font-medium">Registered by Agent:</span> Yes</p>
-              <p><span className="font-medium">Agent Name:</span> {tenant.agent_first_name || 'N/A'}</p>
-              <p><span className="font-medium">Agent Sex:</span> {tenant.agent_sex || 'N/A'}</p>
-              <p><span className="font-medium">Agent Phone:</span> {tenant.agent_phone || 'N/A'}</p>
-              <p><span className="font-medium">Agent City:</span> {tenant.agent_city || 'N/A'}</p>
-               <p><span className="font-medium">Agent Location:</span> {tenant.agent_subcity || 'N/A'}, {tenant.agent_woreda || 'N/A'}, {tenant.agent_house_no || 'N/A'}</p>
-               <p><span className="font-medium">Authentication No:</span> {tenant.authentication_no || 'N/A'}</p>
+           {/* Owner Details */}
+           <div className="space-y-2">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              Owner Details
+            </h4>
+            <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+              <p>
+                <span className="font-medium text-gray-900 dark:text-white">Email:</span>
+                {building.owner_email}
+              </p>
+              <p>
+               <span className="font-medium text-gray-900 dark:text-white">Phone:</span>
+                {building.owner_phone}
+              </p>
+               <p>
+                <span className="font-medium text-gray-900 dark:text-white">Address:</span>
+                {building.owner_address}
+              </p>
             </div>
-          )}
+           </div>
 
-           <div className="space-y-1 col-span-full flex gap-2 mt-4">
-              {/* Delete Button */}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent row collapsing
-                  setDeleteTenantId(tenant.id);
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Tenant
-              </Button>
-              {/* Add other actions like Edit Tenant if needed */}
-            </div>
+          {/* Action Buttons in Expanded View (Only Reset Password remains) */}
+          <div className="space-y-2 col-span-full flex gap-2 mt-4">
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={(e) => {
+                 e.stopPropagation();
+                 setResetPasswordId(building.id);
+               }}
+             >
+               Reset Password
+             </Button>
+           </div>
 
         </div>
       </div>
     );
   };
 
-
   const handleRegistrationModal = () => {
     setIsRegistrationOpen(!isRegistrationOpen);
   };
-
+  const handleRegistrationSuccess = () => {
+    setIsRegistrationOpen(false);
+    fetchProperties(); // Refresh the list after successful registration
+  };
+  const handleRegistrationCancel = () => {
+    setIsRegistrationOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -365,21 +688,16 @@ const Tenants = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Tenants
+                    Properties
                   </h1>
                   <p className="text-gray-500 dark:text-gray-400">
-                    {tenants.length} Total Tenants
+                    {buildings.length} Total Properties
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={resetFilters}>
                     Reset Filters
                   </Button>
-                   {/* Button to open registration modal */}
-                   <Button onClick={handleRegistrationModal}>
-                     <Plus className="h-4 w-4 mr-2" />
-                     Add Tenant
-                   </Button>
                 </div>
               </div>
 
@@ -388,184 +706,274 @@ const Tenants = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search tenants by name, ID, room, phone, city..."
+                    placeholder="Search properties..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"
                   />
                 </div>
-                {/* Status filter */}
+                {/* Status filter updated */}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
                     <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Terminated">Terminated</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
                   </SelectContent>
                 </Select>
-                 {/* Add other filters here if needed (e.g., by building_id) */}
               </div>
 
               {/* Table */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"> {/* Added overflow-hidden */}
-                {paginatedData.length === 0 && !isLoading ? (
-                   <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                     No tenants found matching the criteria.
-                   </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"> {/* Added overflow-hidden */}
+                 {isLoading ? (
+                     <div className="p-6 text-center text-gray-500 dark:text-gray-400">Loading properties...</div>
+                 ) : paginatedData.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                      No properties found matching the criteria.
+                    </div>
                  ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Tenant ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Room</TableHead>
-                        <TableHead>Phone</TableHead>
-                         <TableHead>Location</TableHead>
-                         <TableHead>Lease Dates</TableHead>
+                        <TableHead className="w-[100px]">Building ID</TableHead>
+                        <TableHead>Building Name</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Owner Contact</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="w-[50px]"></TableHead> {/* For expand icon */}
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedData.map((tenant) => (
-                        <React.Fragment key={tenant.id}>
+                      {paginatedData.map((building) => (
+                        <React.Fragment key={building.id}>
                           <TableRow
-                            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                            onClick={() => toggleRow(tenant.id)}
+                            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/70"
+                            onClick={() => toggleRow(building.id)}
                           >
-                            <TableCell>{tenant.tenant_id}</TableCell>
-                            <TableCell>{tenant.full_name}</TableCell>
-                            <TableCell>{tenant.roomName || 'N/A'}</TableCell>
-                            <TableCell>{tenant.phone || 'N/A'}</TableCell>
-                             <TableCell>{tenant.city || 'N/A'}</TableCell>
-                             <TableCell>
-                               <div className="flex flex-col">
-                                 <span className="font-medium">Start: {formatDate(tenant.lease_start)}</span>
-                                  <span className="text-sm text-gray-500">End: {formatDate(tenant.lease_end)}</span>
-                               </div>
-                             </TableCell>
+                            <TableCell className="font-medium">{building.id}</TableCell>
+                            <TableCell>{building.building_name}</TableCell>
                             <TableCell>
-                              <StatusBadge status={getTenantStatus(tenant.terminated)} />
+                              <div className="flex flex-col">
+                                <span>{building.location}</span>
+                              </div>
                             </TableCell>
                             <TableCell>
-                              {expandedRows.has(tenant.id) ? (
-                                <ChevronUp className="w-4 h-4" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4" />
-                              )}
+                              <div className="flex flex-col">
+                                <span>{building.owner_email}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {building.owner_phone}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusCell building={building} />
+                            </TableCell>
+                            <TableCell>
+                              {expandedRows.has(building.id) ?
+                               (<ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />)
+                               :(<ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />)
+                              }
                             </TableCell>
                           </TableRow>
-                          {expandedRows.has(tenant.id) && (
-                            <TableRow>
-                              <TableCell colSpan={8} className="p-0"> {/* Adjusted colspan */}
-                                {renderExpandedDetails(tenant)}
+                          {expandedRows.has(building.id) && (
+                            <TableRow className="bg-gray-100 dark:bg-gray-800/50">
+                              <TableCell colSpan={6} className="p-0">
+                                {renderExpandedDetails(building)}
                               </TableCell>
                             </TableRow>
                           )}
                         </React.Fragment>
                       ))}
-                    </TableBody>
-                  </Table>
+                  </TableBody>
+                </Table>
                  )}
-
 
                 {/* Pagination */}
-                 {filteredTenants.length > itemsPerPage && ( // Only show pagination if needed
-                   <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                     <div className="flex-1 text-sm text-gray-700 dark:text-gray-300">
-                       Showing {currentPage * itemsPerPage + 1} to{" "}
-                       {Math.min(
-                         (currentPage + 1) * itemsPerPage,
-                         filteredTenants.length
-                       )}{" "}
-                       of {filteredTenants.length} results
-                     </div>
-                     <div className="flex gap-2">
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() =>
-                           setCurrentPage((prev) => Math.max(0, prev - 1))
-                         }
-                         disabled={currentPage === 0}
-                       >
-                         Previous
-                       </Button>
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() =>
-                           setCurrentPage((prev) =>
-                             Math.min(
-                               Math.ceil(filteredTenants.length / itemsPerPage) -
-                                 1,
-                               prev + 1
-                             )
-                           )
-                         }
-                         disabled={
-                           currentPage >=
-                           Math.ceil(filteredTenants.length / itemsPerPage) - 1
-                         }
-                       >
-                         Next
-                       </Button>
-                     </div>
-                   </div>
-                 )}
+                {filteredBuildings.length > itemsPerPage && ( // Only show pagination if needed
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex-1 text-sm text-gray-700 dark:text-gray-300">
+                      Showing {filteredBuildings.length > 0 ? currentPage * itemsPerPage + 1 : 0} to{" "}
+                      {Math.min(
+                        (currentPage + 1) * itemsPerPage,
+                        filteredBuildings.length
+                      )}{" "}
+                      of {filteredBuildings.length} results
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={currentPage === 0}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(
+                              Math.ceil(filteredBuildings.length / itemsPerPage) -
+                                1,
+                              prev + 1
+                            )
+                          )
+                        }
+                        disabled={
+                          currentPage >=
+                          (Math.ceil(filteredBuildings.length / itemsPerPage) - 1) ||
+                          filteredBuildings.length === 0
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </main>
       </div>
 
-      {/* Delete Tenant Confirmation Dialog */}
+      {/* AlertDialog for Reset Password */}
       <AlertDialog
-        open={!!deleteTenantId}
-        onOpenChange={() => setDeleteTenantId(null)}
+        open={!!resetPasswordId}
+        onOpenChange={() => setResetPasswordId(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Tenant</AlertDialogTitle>
+            <AlertDialogTitle>Reset Property Password</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this tenant? This action cannot
-              be undone.
+              Are you sure you want to reset the password for this property?
+              This action will reset the password associated with the property's owner/admin.
+              Please ensure the backend endpoint for this action is implemented.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
               onClick={() => {
-                if (deleteTenantId !== null) {
-                  handleDeleteTenant(deleteTenantId);
+                if (resetPasswordId !== null) {
+                  handleResetPassword(resetPasswordId);
                 }
               }}
             >
-              Delete
+              Reset Password
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-       {/* Add Tenant Modal (Placeholder) */}
-       <Dialog open={isRegistrationOpen} onOpenChange={setIsRegistrationOpen}>
-         <DialogContent className="max-w-2xl">
-            <div className="p-4 text-center">
-              <h3 className="text-lg font-semibold mb-4">Tenant Registration Form (Placeholder)</h3>
-              <p className="text-gray-600 mb-4">
-                Implement your Tenant registration form component here.
-                It should handle input fields for relevant tenant details
-                and make an API call to create a new tenant.
-              </p>
-               <Button onClick={() => setIsRegistrationOpen(false)}>Close</Button>
-               {/* You would typically put your TenantRegistrationForm component here */}
-               {/* <TenantRegistrationForm onSuccess={fetchTenants} onCancel={() => setIsRegistrationOpen(false)} /> */}
-            </div>
-         </DialogContent>
+      {/* Dialog for adding a new property */}
+      <Dialog open={isRegistrationOpen} onOpenChange={setIsRegistrationOpen}>
+        <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh)">
+          <BuildingRegistrationForm
+            onSuccess={handleRegistrationSuccess}
+            onCancel={handleRegistrationCancel}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for Activating with Dates */}
+       <Dialog open={isActivationModalOpen} onOpenChange={setIsActivationModalOpen}>
+           <DialogContent>
+               <DialogHeader>
+                   <DialogTitle>Activate Property: {buildingToActivate?.building_name}</DialogTitle>
+               </DialogHeader>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                   {/* Start Date Picker */}
+                   <div className="flex flex-col gap-2">
+                       <label className="text-sm font-medium leading-none">Start Date</label>
+                       <Popover>
+                           <PopoverTrigger asChild>
+                               <Button
+                                   variant={"outline"}
+                                   className={`w-full justify-start text-left font-normal ${!activationStartDate && "text-muted-foreground"}`}
+                               >
+                                   <CalendarIcon className="mr-2 h-4 w-4" />
+                                   {activationStartDate ? format(activationStartDate, "PPP") : <span>Pick a date</span>}
+                               </Button>
+                           </PopoverTrigger>
+                           <PopoverContent className="w-auto p-0">
+                               <Calendar
+                                   mode="single"
+                                   selected={activationStartDate}
+                                   onSelect={setActivationStartDate}
+                                   initialFocus
+                               />
+                           </PopoverContent>
+                       </Popover>
+                   </div>
+
+                   {/* End Date Picker */}
+                   <div className="flex flex-col gap-2">
+                       <label className="text-sm font-medium leading-none">End Date</label>
+                       <Popover>
+                           <PopoverTrigger asChild>
+                               <Button
+                                   variant={"outline"}
+                                   className={`w-full justify-start text-left font-normal ${!activationEndDate && "text-muted-foreground"}`}
+                               >
+                                   <CalendarIcon className="mr-2 h-4 w-4" />
+                                   {activationEndDate ? format(activationEndDate, "PPP") : <span>Pick a date</span>}
+                               </Button>
+                           </PopoverTrigger>
+                           <PopoverContent className="w-auto p-0">
+                               <Calendar
+                                   mode="single"
+                                   selected={activationEndDate}
+                                   onSelect={setActivationEndDate}
+                                   disabled={(date) => activationStartDate ? date < activationStartDate : false}
+                                   initialFocus
+                               />
+                           </PopoverContent>
+                       </Popover>
+                   </div>
+               </div>
+               <DialogFooter>
+                   <Button variant="outline" onClick={() => setIsActivationModalOpen(false)} disabled={isActivating}>Cancel</Button>
+                   <Button onClick={handleActivateWithDates} disabled={isActivating || !activationStartDate || !activationEndDate}>
+                       {isActivating ? "Activating..." : "Activate"}
+                   </Button>
+               </DialogFooter>
+           </DialogContent>
        </Dialog>
+
+      {/* Dialog for Suspending with Reason */}
+       <Dialog open={isSuspensionModalOpen} onOpenChange={setIsSuspensionModalOpen}>
+           <DialogContent>
+               <DialogHeader>
+                   <DialogTitle>Suspend Property: {buildingToSuspend?.building_name}</DialogTitle>
+               </DialogHeader>
+               <div className="py-4">
+                   <div className="flex flex-col gap-2">
+                       <label htmlFor="suspension-reason" className="text-sm font-medium leading-none">Reason for Suspension (Optional)</label>
+                       <Textarea
+                           id="suspension-reason"
+                           placeholder="Enter reason for suspending this property..."
+                           value={suspensionReason}
+                           onChange={(e) => setSuspensionReason(e.target.value)}
+                           rows={4} // Adjust rows as needed
+                       />
+                   </div>
+               </div>
+               <DialogFooter>
+                   <Button variant="outline" onClick={() => setIsSuspensionModalOpen(false)} disabled={isSuspending}>Cancel</Button>
+                   <Button onClick={handleConfirmSuspend} disabled={isSuspending}>
+                       {isSuspending ? "Suspending..." : "Confirm Suspend"}
+                   </Button>
+               </DialogFooter>
+           </DialogContent>
+       </Dialog>
+
 
       <Toaster position="bottom-right" />
     </div>

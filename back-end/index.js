@@ -29,10 +29,9 @@ app.use(express.json({
   }
 }));
 
-
+app.use('/api/buildings', buildingRoutes);
 app.use(login)
 app.use(tenantsRoutes);
-app.use('/api/buildings', buildingRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/stalls', stallRoutes);
 app.use('/api/utilities', utilityRoutes);
@@ -49,30 +48,12 @@ app.get('/', (req, res) => {
 
 app.use('/uploads', express.static('uploads'));
 
-// app.listen(PORT, async () => {
-//   console.log(`🚀 Server is running on port ${PORT}`);
-
-//   try {
-//     console.log('Starting ngrok...');
-//     const url = await ngrok.connect(PORT); // open ngrok tunnel to the port
-//     console.log(`🌐 Ngrok tunnel is live at: ${url}`);
-//     if (!url) {
-//       console.warn('Ngrok failed to start. Webhooks may not work.');
-//     }
-
-//     // Optional: print webhook URL
-//     console.log(`📩 Set your webhook to: ${url}/api/payments/webhook`);
-//   } catch (err) {
-//     console.error('❌ Failed to start ngrok:', err.message);
-//   }
-// });
 
 
 app.listen(PORT,()=>{
   console.log(`the appis runniing on ${PORT}`)
 })
 
-// Example with node-cron in your main server file (app.js / server.js)
 
 cron.schedule(process.env.PAYMENT_RECONCILIATION_CRON || "0 12 * * *", async () => {
   console.log(`[${new Date().toISOString()}] Running payment reconciliation job`);

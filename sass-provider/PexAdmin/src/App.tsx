@@ -3,27 +3,28 @@ import "./App.css";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Dashboard from "./Pages/dashboard";
 import Login from "./Pages/login";
-import { Toaster } from 'react-hot-toast'; // Assuming react-hot-toast
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from "./context/AuthContext";
-import { PrivateRoute } from "./guard/PrivateRoute"; // Correct import
+import { PrivateRoute } from "./guard/PrivateRoute";
 import Properties from "./Pages/Properties";
 import Notifications from "./Pages/Notifications";
 import Tenants from "./Pages/Tenant";
+import DealsPage from "./Pages/DealsPage";
 
 function App() {
   return (
-    <AuthProvider>
-      <div className="App">
-        <Router>
+    <Router>
+      <AuthProvider>
+        <div className="App">
           <Routes>
-            {/* Public Route for Login */}
+            {/* Public Route */}
             <Route path="/" element={<Login />} />
 
-            {/* Protected Routes - Wrap elements with PrivateRoute */}
+            {/* Private Routes */}
             <Route
               path="/dashboard"
               element={
-                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
+                <PrivateRoute>
                   <Dashboard />
                 </PrivateRoute>
               }
@@ -31,7 +32,7 @@ function App() {
             <Route
               path="/properties"
               element={
-                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
+                <PrivateRoute>
                   <Properties />
                 </PrivateRoute>
               }
@@ -39,7 +40,7 @@ function App() {
             <Route
               path="/notifications"
               element={
-                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
+                <PrivateRoute>
                   <Notifications />
                 </PrivateRoute>
               }
@@ -47,17 +48,24 @@ function App() {
             <Route
               path="/tenants"
               element={
-                <PrivateRoute> {/* Ensure PrivateRoute wraps the component */}
+                <PrivateRoute>
                   <Tenants />
                 </PrivateRoute>
               }
             />
-            {/* Add other routes here */}
+            <Route
+              path="/documents"
+              element={
+                <PrivateRoute>
+                  <DealsPage />
+                </PrivateRoute>
+              }
+            />
           </Routes>
-        </Router>
-        <Toaster position="top-right" reverseOrder={false} />
-      </div>
-    </AuthProvider>
+          <Toaster position="top-right" reverseOrder={false} />
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
 
