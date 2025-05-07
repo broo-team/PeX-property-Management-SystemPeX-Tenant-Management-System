@@ -1,0 +1,36 @@
+/* Custom styles for landing page */
+.hero-slider .swiper-slide {
+  height: 100vh;
+}
+
+.category-pill {
+  @apply px-4 py-2 rounded-full text-sm font-medium transition-all;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.category-pill.active {
+  @apply bg-gradient-to-r from-[#4ADE80] to-blue-500 text-white;
+}
+
+.property-card {
+  @apply bg-white rounded-xl overflow-hidden transition-transform duration-300;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.property-card:hover {
+  transform: translateY(-5px);
+}
+
+.section-title {
+  @apply text-4xl font-bold mb-2;
+  background: linear-gradient(to right, #4ADE80, #3B82F6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient {
+  background: linear-gradient(to right, #4ADE80, #3B82F6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+} 
