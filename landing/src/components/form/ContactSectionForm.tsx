@@ -13,34 +13,31 @@ import {
   Loader2,
   Upload,
   X,
-  Map
+  Map // Assuming Map icon is for Location/City
 } from 'lucide-react';
-// Remove the contact-specific hook and API function import
-// import { useContactForm } from '@/hooks/useContactForm';
-// import { contactApi } from './contactApi'; // Or wherever your contactApi was
 
-import axiosInstance from '@/services/authService'; // Your existing axios instance, assuming it's configured
+import axiosInstance from '@/services/authService'; // Your existing axios instance
 
 // --- Zod Schema: Corrected for Building Registration Backend ---
+// Note: Schema keys use camelCase/standard JS naming, mapping to backend snake_case happens in onSubmit
 const buildingRegistrationSchema = z.object({
   buildingName: z.string().min(2, 'Building name is required'),
-  building_address: z.string().min(5, 'Building address is required'), // Added missing field
-  location: z.string().min(2, 'Location is required'), // Added missing field
-  propertyType: z.enum(['residential', 'commercial', 'mixed'], {
+  building_address: z.string().min(5, 'Building address is required'),
+  location: z.string().min(2, 'Location is required'),
+  propertyType: z.enum(['residential', 'commercial', 'mixed'], { // Use camelCase here internally
     errorMap: () => ({ message: "Please select a property type" })
   }),
-  buildingImage: z.any().refine(file => file instanceof File, 'Building image is required'), // Changed to required File object
-  owner_email: z.string().email('Invalid email address'), // Changed name to match backend
-  owner_phone: z.string().min(10, 'Invalid phone number'), // Changed name to match backend
-  owner_address: z.string().min(5, 'Owner address is required'), // Changed name to match backend
-  // Removed fullName and message as they are not in the backend schema
+  buildingImage: z.any().refine(file => file instanceof File, 'Building image is required'),
+  owner_email: z.string().email('Invalid email address'),
+  owner_phone: z.string().min(10, 'Invalid phone number'),
+  owner_address: z.string().min(5, 'Owner address is required'),
 });
 
 // Type based on the corrected schema
 type BuildingRegistrationFormData = z.infer<typeof buildingRegistrationSchema>;
 
 // --- BuildingRegistrationForm Component ---
-export const ContactSectionForm = () => { // Renamed component
+export const ContactSectionForm = () => {
   // State for multi-step form (Now 2 steps)
   const [currentStep, setCurrentStep] = useState(1);
   // State for image preview
@@ -83,24 +80,21 @@ export const ContactSectionForm = () => { // Renamed component
       // Client-side validation (should align with backend fileFilter logic)
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Only JPEG, PNG, and JPG images are allowed.'); // Consider a more integrated error display
-        // Clear the input and state
-        removeImage(); // Reuses logic to clear input/state
+        alert('Invalid file type. Only JPEG, PNG, and JPG images are allowed.');
+        removeImage();
         return;
       }
 
-      // Backend doesn't specify size limit in the provided snippet, but 5MB is a common client-side check.
-      // Adjust if backend has a limit.
+      // Backend doesn't specify size limit in the provided snippet, but 5MB is common
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size should be less than 5MB'); // Consider a more integrated error display
-        // Clear the input and state
-        removeImage(); // Reuses logic to clear input/state
+        alert('File size should be less than 5MB');
+        removeImage();
         return;
       }
 
       // Set value in react-hook-form state for schema validation
       setValue('buildingImage', file, { shouldValidate: true });
-      setError(null); // Clear previous submission error if setting image fixes a required field error
+      setError(null); // Clear previous submission error
 
       // Create preview URL
       const reader = new FileReader();
@@ -112,21 +106,19 @@ export const ContactSectionForm = () => { // Renamed component
   };
 
   const removeImage = () => {
-    setValue('buildingImage', undefined, { shouldValidate: true }); // Clear react-hook-form state & re-validate
-    setImagePreview(null); // Clear local state
-    // Clear the actual file input element value to allow selecting the same file again
+    setValue('buildingImage', undefined, { shouldValidate: true });
+    setImagePreview(null);
     const inputElement = document.getElementById('building-image') as HTMLInputElement;
     if (inputElement) {
         inputElement.value = '';
     }
-    // Clear any image validation error explicitly if needed, though setValue/shouldValidate should trigger re-validation
   };
   // --- End Image Handling Logic ---
 
 
-  // --- Submission Logic: Modified to use axiosInstance ---
+  // --- Submission Logic: Fixed FormData Key ---
   const onSubmit = async (data: BuildingRegistrationFormData) => {
-    console.log('Form data before submission:', data); // Data validated by Zod
+    console.log('Form data before submission:', data);
 
     setIsSubmitting(true);
     setError(null);
@@ -135,34 +127,29 @@ export const ContactSectionForm = () => { // Renamed component
     try {
       const formData = new FormData();
 
-      // Append all text fields using the exact backend keys
+      // Append text fields using the EXACT backend keys (snake_case where needed)
       formData.append('buildingName', data.buildingName);
       formData.append('building_address', data.building_address);
       formData.append('location', data.location);
-      formData.append('propertyType', data.propertyType); // Enum appended as string
+      formData.append('property_type', data.propertyType); // <-- FIXED: Use snake_case key
       formData.append('owner_email', data.owner_email);
       formData.append('owner_phone', data.owner_phone);
       formData.append('owner_address', data.owner_address);
 
-      // Append the image file only if it exists and is a File object
-      const imageFile = getValues('buildingImage'); // Get value directly from RHF state
+      // Append the image file
+      const imageFile = getValues('buildingImage');
       if (imageFile instanceof File) {
-        console.log('Appending file:', imageFile.name);
-        formData.append('buildingImage', imageFile, imageFile.name); // Append with filename
+        formData.append('buildingImage', imageFile, imageFile.name);
       } else {
-         // This case should ideally not happen if schema validation works,
-         // but adding a log for debugging
          console.warn('Building image is missing or not a File object', imageFile);
-         setError('Building image file is missing.'); // Set a user-friendly error
+         setError('Building image file is missing.');
          setIsSubmitting(false);
-         return; // Stop submission
+         return;
       }
 
-      // Debug: Log all form data entries (Note: File content won't be visible, only filename/details)
+      // Debug: Log all form data entries
       console.log('FormData entries:');
        for (let [key, value] of formData.entries()) {
-         // For file entries, value is the File object, which is not easily stringifiable.
-         // Log a property of the File object like name or size.
          if (value instanceof File) {
              console.log(`${key}:`, value.name, `(${value.size} bytes)`);
          } else {
@@ -170,48 +157,33 @@ export const ContactSectionForm = () => { // Renamed component
          }
        }
 
-
       // Use axiosInstance to send the POST request to the correct backend endpoint
       const response = await axiosInstance.post('/api/buildings', formData, {
         headers: {
-          // axiosInstance might set this automatically for FormData, but explicit is fine too
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'multipart/form-data', // Although axios often handles this for FormData
         },
-         // Optional: Add onUploadProgress if you need a progress bar
-        // onUploadProgress: (progressEvent) => {
-        //   const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total!);
-        //   console.log('Upload progress:', percentCompleted);
-        // },
       });
 
       console.log('Backend response:', response.data);
 
-      // Check for success based on status code (201 for created)
       if (response.status === 201) {
         setIsSuccess(true);
-        // Optional: Handle successful registration message or redirect
-        // e.g., localStorage.setItem('newBuildingId', response.data.id);
-        // router.push('/buildings'); // Example redirect
       } else {
-         // Handle other non-201 success-range status codes if necessary
-         setError(response.data.message || 'Registration failed.'); // Use backend message if available
+         setError(response.data.message || 'Registration failed.');
       }
 
 
     } catch (err) {
       console.error('Submission Error:', err);
 
-      // Improved error handling based on axios response structure
       if (axiosInstance.isAxiosError(err) && err.response) {
-        // Backend sent a response with a status code (4xx, 5xx)
         const backendError = err.response.data;
         if (backendError && backendError.error) {
-             setError(`Error: ${backendError.error}`); // Display backend specific error
+             setError(`Error: ${backendError.error}`);
         } else {
              setError(`Server responded with status ${err.response.status}`);
         }
       } else {
-        // Network error or other issue
         setError('An unexpected error occurred. Please try again.');
       }
 
@@ -223,64 +195,54 @@ export const ContactSectionForm = () => { // Renamed component
 
 
   // --- Navigation Logic ---
-  // Now navigating between 2 steps
   const totalSteps = 2;
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof BuildingRegistrationFormData)[] = [];
 
-    // Fields to validate for each step before proceeding
     switch (currentStep) {
       case 1:
         fieldsToValidate = ['buildingName', 'building_address', 'location', 'propertyType', 'buildingImage'];
         break;
-      case 2: // No 'next' from step 2, validation happens on submit
+      case 2:
+         // No fields to validate for 'next' from step 2, validation is on submit
         break;
       default:
         fieldsToValidate = [];
     }
 
-     // Trigger validation for the fields specific to the current step
-    const isStepValid = await trigger(fieldsToValidate);
+    // Trigger validation for the fields specific to the current step
+    // For step 2, this trigger won't do anything as fieldsToValidate is empty
+    const isStepValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
+
 
     if (isStepValid) {
-       // Check image specifically if trigger didn't cover it fully (though schema should now)
-       // const imageFile = getValues('buildingImage');
-       // if (currentStep === 1 && (!imageFile || !(imageFile instanceof File))) {
-       //      setError('Building image is required.'); // Or set error in RHF state
-       //      return; // Don't proceed
-       // }
-
         if (currentStep < totalSteps) {
             setCurrentStep(prev => prev + 1);
-            setError(null); // Clear previous submission error on moving forward
+            setError(null);
         }
-       // else { // currentStep is the last step, no next action needed }
     } else {
-        console.log(`Step ${currentStep} validation failed`, errors); // Debug validation errors
-        // Optional: focus the first field with an error in the current step's fields
+        console.log(`Step ${currentStep} validation failed`, errors);
         const firstErrorField = fieldsToValidate.find(field => errors[field]);
         if(firstErrorField) {
-           // Cast to any if needed, or refine setFocus type
            setFocus(firstErrorField as any);
         }
-        // Do NOT clear submission error here, as validation failed client-side
     }
   };
 
   const prevStep = () => {
-      setCurrentStep(prev => Math.max(1, prev - 1)); // Prevent going below step 1
-      setError(null); // Clear previous submission error on moving backward
+      setCurrentStep(prev => Math.max(1, prev - 1));
+      setError(null);
   };
 
   // Form steps content - Now 2 steps
   const formStepsContent = {
     1: (
         <motion.div
-          key={1} // Key for AnimatePresence
-          initial={{ x: 50, opacity: 0 }} // Animation from right
+          key={1}
+          initial={{ x: 50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -50, opacity: 0 }} // Exit to left
+          exit={{ x: -50, opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="space-y-6"
         >
@@ -301,7 +263,6 @@ export const ContactSectionForm = () => { // Renamed component
             )}
           </div>
 
-           {/* Added Building Address */}
            <div>
             <label htmlFor="building_address" className="block text-sm font-medium mb-2">Building Address</label>
             <div className="relative">
@@ -318,7 +279,6 @@ export const ContactSectionForm = () => { // Renamed component
             )}
           </div>
 
-           {/* Added Location */}
           <div>
             <label htmlFor="location" className="block text-sm font-medium mb-2">Location / City</label>
             <div className="relative">
@@ -342,7 +302,7 @@ export const ContactSectionForm = () => { // Renamed component
               {['residential', 'commercial', 'mixed'].map((type) => (
                 <button
                   key={type}
-                  type="button" // Important: type="button" to prevent form submission
+                  type="button"
                   onClick={() => setValue('propertyType', type as any, { shouldValidate: true })}
                   className={`p-4 rounded-lg border-2 transition-all text-center ${
                     watch('propertyType') === type
@@ -359,21 +319,18 @@ export const ContactSectionForm = () => { // Renamed component
               )}
           </div>
 
-          {/* Building Image Field */}
           <div>
             <label htmlFor="building-image" className="block text-sm font-medium mb-2">Building Image</label>
             <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4">
               {!imagePreview ? (
                 <div className="text-center">
-                   {/* The actual file input */}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/jpg" // Restrict file types client-side
+                    accept="image/jpeg,image/png,image/jpg"
                     onChange={handleImageUpload}
                     className="hidden"
                     id="building-image"
                   />
-                  {/* Label to trigger the hidden file input */}
                   <label
                     htmlFor="building-image"
                     className="cursor-pointer inline-flex flex-col items-center justify-center gap-2"
@@ -405,9 +362,7 @@ export const ContactSectionForm = () => { // Renamed component
                 </div>
               )}
             </div>
-            {/* Display error for buildingImage */}
              {errors.buildingImage && (
-                // Note: Error message comes from the `.refine` method in the schema
                 <p className="text-red-500 text-sm mt-1">{errors.buildingImage.message?.toString()}</p>
              )}
           </div>
@@ -424,17 +379,15 @@ export const ContactSectionForm = () => { // Renamed component
     ),
     2: (
       <motion.div
-         key={2} // Key for AnimatePresence
-         initial={{ x: 50, opacity: 0 }} // Animation from right
+         key={2}
+         initial={{ x: 50, opacity: 0 }}
          animate={{ x: 0, opacity: 1 }}
-         exit={{ x: -50, opacity: 0 }} // Exit to left
+         exit={{ x: -50, opacity: 0 }}
          transition={{ duration: 0.3 }}
          className="space-y-6"
        >
          <h3 className="text-xl font-semibold mb-4">Owner Details</h3>
-         {/* Removed Full Name field */}
 
-         {/* Owner Email Field */}
          <div>
            <label htmlFor="owner_email" className="block text-sm font-medium mb-2">
              Owner Email
@@ -444,7 +397,7 @@ export const ContactSectionForm = () => { // Renamed component
              <input
                id="owner_email"
                type="email"
-               {...register('owner_email')} // Corrected name
+               {...register('owner_email')}
                className={`w-full pl-10 pr-4 py-3 rounded-lg border ${errors.owner_email ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'} focus:ring-2 focus:ring-primary-green`}
                placeholder="owner@example.com"
              />
@@ -456,7 +409,6 @@ export const ContactSectionForm = () => { // Renamed component
            )}
          </div>
 
-         {/* Owner Phone Field */}
          <div>
            <label htmlFor="owner_phone" className="block text-sm font-medium mb-2">
              Owner Phone Number
@@ -465,8 +417,8 @@ export const ContactSectionForm = () => { // Renamed component
              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
              <input
                id="owner_phone"
-               type="tel" // Use type="tel" for phone numbers
-               {...register('owner_phone')} // Corrected name
+               type="tel"
+               {...register('owner_phone')}
                className={`w-full pl-10 pr-4 py-3 rounded-lg border ${errors.owner_phone ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'} focus:ring-2 focus:ring-primary-green`}
                placeholder="+1 (555) 000-0000"
              />
@@ -478,14 +430,13 @@ export const ContactSectionForm = () => { // Renamed component
            )}
          </div>
 
-         {/* Owner Address Field (Moved from Step 3) */}
          <div>
            <label htmlFor="owner_address" className="block text-sm font-medium mb-2">Owner Address</label>
            <div className="relative">
              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
              <input
                id="owner_address"
-               {...register('owner_address')} // Corrected name
+               {...register('owner_address')}
                className={`w-full pl-10 pr-4 py-3 rounded-lg border ${errors.owner_address ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'} focus:ring-2 focus:ring-primary-green`}
                placeholder="Enter owner's address"
              />
@@ -495,9 +446,6 @@ export const ContactSectionForm = () => { // Renamed component
            )}
          </div>
 
-        {/* Removed Additional Message field */}
-
-        {/* Navigation Buttons */}
         <div className="flex gap-4">
            <button
              type="button"
@@ -507,7 +455,7 @@ export const ContactSectionForm = () => { // Renamed component
              Back
            </button>
            <button
-             type="submit" // This button triggers the form's onSubmit handler via handleSubmit
+             type="submit"
              disabled={isSubmitting}
              className="flex-1 py-3 rounded-lg bg-gradient-to-r from-primary-green to-primary-blue text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
            >
@@ -525,7 +473,6 @@ export const ContactSectionForm = () => { // Renamed component
          </div>
        </motion.div>
     ),
-     // Step 3 is removed
   };
 
 
@@ -560,13 +507,12 @@ export const ContactSectionForm = () => { // Renamed component
             <motion.div
                className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-primary-green to-primary-blue -translate-y-1/2 transition-all duration-300"
                initial={{ width: '0%' }}
-                // (currentStep - 1) / (totalSteps - 1) * 100
                animate={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
                transition={{ duration: 0.5 }}
             />
 
             {/* Step circles (Now 2 steps) */}
-            {[1, 2].map((step) => ( // Render 2 circles
+            {[1, 2].map((step) => (
               <motion.div
                 key={step}
                 initial={{ scale: 0.8 }}
@@ -585,24 +531,18 @@ export const ContactSectionForm = () => { // Renamed component
           {/* Form or Success Message Container */}
           <AnimatePresence mode="wait">
             {!isSuccess ? (
-              // Render the form
               <motion.form
-                key="form" // Key for AnimatePresence
+                key="form"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onSubmit={handleSubmit(onSubmit)} // RHF handleSubmit wraps our onSubmit
+                onSubmit={handleSubmit(onSubmit)}
                 className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl"
-                // Use encType="multipart/form-data" for older methods, but FormData handles it
-                // encType="multipart/form-data"
               >
-                 {/* Render the current step content with animation */}
-                <AnimatePresence mode="wait" initial={false}> {/* initial={false} to prevent animation on mount */}
-                    {/* Use the formStepsContent object to render the current step */}
+                 <AnimatePresence mode="wait" initial={false}>
                     {formStepsContent[currentStep as keyof typeof formStepsContent]}
                 </AnimatePresence>
 
-                 {/* Display general submission error */}
                 {error && (
                    <motion.div
                        initial={{ opacity: 0, y: 10 }}
@@ -615,9 +555,8 @@ export const ContactSectionForm = () => { // Renamed component
 
               </motion.form>
             ) : (
-              // Render success message when isSuccess is true
               <motion.div
-                 key="success" // Key for AnimatePresence
+                 key="success"
                  initial={{ opacity: 0, scale: 0.9 }}
                  animate={{ opacity: 1, scale: 1 }}
                  exit={{ opacity: 0 }}
@@ -631,14 +570,6 @@ export const ContactSectionForm = () => { // Renamed component
                  <p className="text-gray-600 dark:text-gray-400">
                    You can now proceed to add units or manage the building.
                  </p>
-                  {/* Optional: Add a button to go to the building dashboard or list */}
-                  {/* <button
-                      type="button"
-                      onClick={() => router.push('/dashboard/buildings')} // Example navigation
-                      className="mt-6 py-3 px-6 rounded-lg bg-gradient-to-r from-primary-green to-primary-blue text-white hover:opacity-90 transition-opacity"
-                  >
-                      Go to Dashboard
-                  </button> */}
                </motion.div>
             )}
           </AnimatePresence>
