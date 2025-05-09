@@ -21,7 +21,7 @@ export const PropertyShowcase = () => {
   const [loading, setLoading] = useState(true);
   const controls = useAnimation();
 
-  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
     const fetchPromotedProperties = async () => {

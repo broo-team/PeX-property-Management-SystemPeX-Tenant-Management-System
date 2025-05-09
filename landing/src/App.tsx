@@ -2,6 +2,7 @@ import "./App.css";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Dashboard from "./dashboard";
 import { ThemeProvider } from "./context/ThemeContext";
+import { LoginPage } from "./Auth/Login";
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" Component={Dashboard} />
+          <Route path="/auth/login" element={<LoginPage />} />
         </Routes>
       </Router>
     </ThemeProvider>
