@@ -117,7 +117,12 @@ const Rent = () => {
       const tenants = tenantRes.data;
       const bills = billRes.data;
 
-      const mergedData = tenants.map((tenant) => {
+      // Only consider active tenants (those not terminated)
+      const activeTenants = tenants.filter(
+        (tenant) => Number(tenant.terminated) === 0
+      );
+
+      const mergedData = activeTenants.map((tenant) => {
         const termRaw = Number(tenant.payment_term) || 30;
         let termDays, termMonths;
         if (termRaw > 12) {
@@ -174,8 +179,7 @@ const Rent = () => {
             tenant.rent_end_date && moment(tenant.rent_end_date).isAfter(moment())
               ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
               : moment().add(termDays, "days").endOf("day").format(DATE_FORMAT);
-          // For new tenants, we deliberately set daysLeft to 0 (or any value ≤ AUTO_RENEW_THRESHOLD)
-          // so that the Render Cell will display "Auto Generating..." immediately.
+          // For new tenants, we force daysLeft to 0 so that the UI shows "Auto Generating..." immediately.
           const daysLeft = 0;
           const totalRentDue = monthlyRent * termMonths;
           return {
@@ -485,7 +489,6 @@ const Rent = () => {
         title: "Approve Payment",
         key: "approve",
         render: (_, record) =>
-          // Only show the Approve button if the bill status is "submitted"
           record.status.toLowerCase() === "submitted" ? (
             <Button
               type="primary"

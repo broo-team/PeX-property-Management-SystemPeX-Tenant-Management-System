@@ -114,13 +114,79 @@ exports.submitPaymentProof = async (req, res) => {
   }
 };
 // Approve a payment with early payment adjustment.
+// exports.approvePayment = async (req, res) => {
+//   try {
+//     const billId = req.params.id;
+
+//     // Retrieve the current bill info.
+//     const [billRows] = await db.query(
+//       "SELECT due_date, original_due_date, payment_term FROM monthly_rent_bills WHERE id = ?",
+//       [billId]
+//     );
+//     if (billRows.length === 0) {
+//       return res.status(404).json({ message: "Bill not found." });
+//     }
+
+//     const { due_date, payment_term } = billRows[0];
+//     const now = moment();
+//     const dueDateMoment = moment(due_date, "YYYY-MM-DD HH:mm:ss");
+
+//     let newCycle;
+//     if (now.isBefore(dueDateMoment)) {
+//       // Early payment: simply use the standard payment term.
+//       newCycle = payment_term;
+//     } else {
+//       // On-time or late payment: subtract overdue days.
+//       const overdueDays = now.diff(dueDateMoment, "days");
+//       newCycle = payment_term - overdueDays;
+//       if (newCycle < 0) newCycle = 0;
+//     }
+
+//     // Set new bill date and new due date.
+//     const newBillDate = now.format("YYYY-MM-DD");
+//     const newDueDate = now
+//       .clone()
+//       .add(newCycle, "days")
+//       .endOf("day")
+//       .format("YYYY-MM-DD HH:mm:ss");
+
+//     // Update the bill: mark the payment as paid and update cycle dates.
+//     const [result] = await db.query(
+//       `UPDATE monthly_rent_bills 
+//          SET payment_status = 'paid', 
+//              bill_date = ?, 
+//              due_date = ?, 
+//              original_due_date = ?
+//        WHERE id = ? AND payment_status = 'submitted'`,
+//       [newBillDate, newDueDate, newDueDate, billId]
+//     );
+
+//     if (result.affectedRows === 0) {
+//       return res
+//         .status(404)
+//         .json({ message: "Bill not found or payment hasn't been submitted." });
+//     }
+
+//     res.json({
+//       message: "Payment approved successfully.",
+//       billId,
+//       newBillDate,
+//       newDueDate,
+//     });
+//   } catch (error) {
+//     console.error("Error approving payment:", error);
+//     res.status(500).json({ message: "Server error while approving payment." });
+//   }
+// };
+
+// Approve a payment with adjusted due date calculation.
 exports.approvePayment = async (req, res) => {
   try {
     const billId = req.params.id;
 
     // Retrieve the current bill info.
     const [billRows] = await db.query(
-      "SELECT due_date, original_due_date, payment_term FROM monthly_rent_bills WHERE id = ?",
+      "SELECT due_date, payment_term FROM monthly_rent_bills WHERE id = ?",
       [billId]
     );
     if (billRows.length === 0) {
@@ -131,26 +197,34 @@ exports.approvePayment = async (req, res) => {
     const now = moment();
     const dueDateMoment = moment(due_date, "YYYY-MM-DD HH:mm:ss");
 
-    let newCycle;
-    if (now.isBefore(dueDateMoment)) {
-      // Early payment: simply use the standard payment term.
-      newCycle = payment_term;
+    let newDueDate;
+    // If payment is on time or early, base the next due date on the previous due date.
+    if (now.isSameOrBefore(dueDateMoment, "day")) {
+      // If payment term is 30 days, add one calendar month to keep the same day-of-month.
+      if (Number(payment_term) === 30) {
+        newDueDate = moment(due_date, "YYYY-MM-DD HH:mm:ss")
+          .add(1, "month")
+          .endOf("day");
+      } else {
+        // For other terms, add the exact payment term days.
+        newDueDate = moment(due_date, "YYYY-MM-DD HH:mm:ss")
+          .add(payment_term, "days")
+          .endOf("day");
+      }
     } else {
-      // On-time or late payment: subtract overdue days.
+      // Late payment: subtract how many days overdue from the term.
       const overdueDays = now.diff(dueDateMoment, "days");
-      newCycle = payment_term - overdueDays;
+      let newCycle = payment_term - overdueDays;
       if (newCycle < 0) newCycle = 0;
+      newDueDate = moment(due_date, "YYYY-MM-DD HH:mm:ss")
+        .add(newCycle, "days")
+        .endOf("day");
     }
 
-    // Set new bill date and new due date.
+    // Set new bill date using the current time.
     const newBillDate = now.format("YYYY-MM-DD");
-    const newDueDate = now
-      .clone()
-      .add(newCycle, "days")
-      .endOf("day")
-      .format("YYYY-MM-DD HH:mm:ss");
 
-    // Update the bill: mark the payment as paid and update cycle dates.
+    // Update the bill in the database.
     const [result] = await db.query(
       `UPDATE monthly_rent_bills 
          SET payment_status = 'paid', 
@@ -158,7 +232,12 @@ exports.approvePayment = async (req, res) => {
              due_date = ?, 
              original_due_date = ?
        WHERE id = ? AND payment_status = 'submitted'`,
-      [newBillDate, newDueDate, newDueDate, billId]
+      [
+        newBillDate,
+        newDueDate.format("YYYY-MM-DD HH:mm:ss"),
+        newDueDate.format("YYYY-MM-DD HH:mm:ss"),
+        billId,
+      ]
     );
 
     if (result.affectedRows === 0) {
@@ -171,7 +250,7 @@ exports.approvePayment = async (req, res) => {
       message: "Payment approved successfully.",
       billId,
       newBillDate,
-      newDueDate,
+      newDueDate: newDueDate.format("YYYY-MM-DD HH:mm:ss"),
     });
   } catch (error) {
     console.error("Error approving payment:", error);

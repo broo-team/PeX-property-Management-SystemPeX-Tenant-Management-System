@@ -544,12 +544,12 @@ useEffect(() => {
   label="Woreda"
   rules={[
     { required: true, message: "Please enter Woreda" },
-    { pattern: /^[0-9]+$/, message: "Woreda must contain only numbers" },
+   
   ]}
 >
   <Input />
 </Form.Item>
-                <Form.Item name="house_no" label="House No" rules={[{ required: true, message: "Please enter Tenant House No" },{ pattern: /^[0-9]+$/, message: "Woreda must contain only numbers" },]}>
+                <Form.Item name="house_no" label="House No" rules={[{ required: true, message: "Please enter Tenant House No" }]}>
                   <Input />
                 </Form.Item>
               </div>
