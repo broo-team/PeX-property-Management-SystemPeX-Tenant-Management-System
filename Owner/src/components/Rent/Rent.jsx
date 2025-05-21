@@ -41,7 +41,9 @@ const isPaidOrApproved = (status) => {
   Otherwise, if the due date has passed, we extend the previous due date by the payment term.
 */
 const buildGenerateBillPayload = (record) => {
+  // record.term is a string like "90 days", so extract termDays via parseInt.
   const termDays = parseInt(record.term, 10);
+  const termMonths = termDays / 30;
   const now = moment();
   let due_date;
 
@@ -60,9 +62,10 @@ const buildGenerateBillPayload = (record) => {
     tenant_id: record.key,
     bill_date: now.format("YYYY-MM-DD"),
     due_date,
-    amount: record.rentAmount,
+    amount: record.rentAmount * termMonths, // monthly rent * number of months
   };
 };
+
 
 const Rent = () => {
   const [data, setData] = useState([]);
@@ -315,40 +318,29 @@ const Rent = () => {
 
   // Render cell for the "Generate Bill" column.
   const renderGenerateBillCell = (record) => {
+    // If a billing request is in progress (auto trigger running) but not finalized:
     if (record.billAutoTriggered && !record.billGenerated) {
       return <Tag color="orange">Auto Generating...</Tag>;
     }
-    // If no current bill exists (i.e. ready for renewal)
-    if (!record.billGenerated) {
-      return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
-        <Tag color="blue">{record.daysLeft} days left</Tag>
-      ) : (
-        <Tag color="orange">Auto Generating...</Tag>
-      );
-    }
-    // If a bill exists and its status is paid/approved.
-    if (isPaidOrApproved(record.status)) {
-      const termDays = parseInt(record.term, 10);
-      const cycleStart = record.billDate
-        ? moment(record.billDate)
-        : moment(record.dueDate);
-      const nextDueDate = cycleStart.clone().add(termDays, "days");
-      const daysLeft = nextDueDate.diff(moment(), "days");
-      return daysLeft > AUTO_RENEW_THRESHOLD ? (
-        <Tag color="blue">{daysLeft} days left</Tag>
-      ) : (
-        <Tag color="orange">Auto Generating...</Tag>
-      );
-    } else {
+  
+    // If the bill is already generated, simply show the remaining days based on dueDate.
+    if (record.billGenerated) {
       const daysLeft = moment(record.dueDate).diff(moment(), "days");
-      return daysLeft <= AUTO_RENEW_THRESHOLD ? (
-        <Tag color="orange">Auto Generating...</Tag>
-      ) : (
+      return daysLeft >= 0 ? (
         <Tag color="blue">{daysLeft} days left</Tag>
+      ) : (
+        <Tag color="red">Overdue</Tag>
       );
     }
+  
+    // For records without a generated bill, fall back on the original logic:
+    return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
+      <Tag color="blue">{record.daysLeft} days left</Tag>
+    ) : (
+      <Tag color="orange">Auto Generating...</Tag>
+    );
   };
-
+  
   // Memoized table columns.
   const columns = useMemo(
     () => [

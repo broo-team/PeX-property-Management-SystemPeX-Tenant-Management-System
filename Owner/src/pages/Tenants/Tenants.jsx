@@ -489,7 +489,7 @@ useEffect(() => {
                 <Form.Item name="tenant_id" label="Tenant ID" rules={[{ required: true, message: "Please enter Tenant ID" }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item name="full_name" label="Full Name" rules={[{ required: true, message: "Please enter Full Name" }]}>
+                <Form.Item name="full_name" label="Full Nameeeeee" rules={[{ required: true, message: "Please enter Full Name" }]}>
                   <Input />
                 </Form.Item>
                 <Form.Item name="sex" label="Sex" rules={[{ required: true, message: "Please enter Sex" }]}>
