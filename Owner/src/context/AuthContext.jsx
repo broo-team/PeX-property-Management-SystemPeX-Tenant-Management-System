@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
       setToken(storedToken);
 
       const id = type === "owner" ? parsedAccount.id : parsedAccount.building_id;
-      const name = type === "owner" ? parsedAccount.name : parsedAccount.building_name;
+      const name = type === "owner" ? parsedAccount.building_name : parsedAccount.building_name;
 
       setBuildingId(id);
       setBuildingName(name); // ✅ Set building name
