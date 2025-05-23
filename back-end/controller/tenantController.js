@@ -401,80 +401,77 @@ exports.getTerminatedTenants = async (req, res) => {
 //     res.status(500).json({ error: "Internal server error" });
 //   }
 // };
-
 exports.getTenants = async (req, res) => {
-    try {
-        const query = `
-            SELECT
-                tenant.id,
-                tenant.tenant_id,
-                tenant.full_name,
-                tenant.sex,
-                tenant.phone,
-                tenant.city,
-                tenant.subcity,
-                tenant.woreda,
-                tenant.house_no,
-                tenant.room,
-                tenant.price,
-                tenant.payment_term,
-                tenant.deposit,
-                tenant.lease_start,
-                tenant.lease_end,
-                tenant.registered_by_agent,
-                tenant.authentication_no,
-                tenant.agent_first_name,
-                tenant.agent_sex,
-                tenant.agent_phone,
-                tenant.agent_city,
-                tenant.agent_subcity,
-                tenant.agent_woreda,
-                tenant.agent_house_no,
-                tenant.eeu_payment,
-                tenant.generator_payment,
-                tenant.water_payment,
-                tenant.terminated,
-                tenant.building_id,
-                tenant.created_at,
-                tenant.rent_start_date,
-                tenant.rent_end_date,
-                tenant.password,
-                rooms.roomName AS roomName,
-                IFNULL(rooms.monthlyRent, 0) AS monthlyRent,
-                IFNULL(electricity.last_reading, 0) AS last_eeu_reading,
-                IFNULL(water_usage.last_reading, 0) AS last_water_reading,
-                IFNULL(generator_usage.last_reading, 0) AS last_generator_reading
-            FROM tenants tenant
-            LEFT JOIN rooms rooms
-                ON tenant.room = rooms.id
-            LEFT JOIN (
-                SELECT tenant_id, MAX(current_reading) AS last_reading
-                FROM tenant_utility_usage
-                WHERE utility_type = 'electricity'
-                GROUP BY tenant_id
-            ) electricity ON tenant.id = electricity.tenant_id
-            LEFT JOIN (
-                SELECT tenant_id, MAX(current_reading) AS last_reading
-                FROM tenant_utility_usage
-                WHERE utility_type = 'water'
-                GROUP BY tenant_id
-            ) water_usage ON tenant.id = water_usage.tenant_id
-            LEFT JOIN (
-                SELECT tenant_id, MAX(current_reading) AS last_reading
-                FROM tenant_utility_usage
-                WHERE utility_type = 'generator'
-                GROUP BY tenant_id
-            ) generator_usage ON tenant.id = generator_usage.tenant_id;
-        `;
+  try {
+    const query = `
+      SELECT
+        tenant.id,
+        tenant.tenant_id,
+        tenant.full_name,
+        tenant.sex,
+        tenant.phone,
+        tenant.city,
+        tenant.subcity,
+        tenant.woreda,
+        tenant.house_no,
+        tenant.room,
+        tenant.price,
+        tenant.payment_term,
+        tenant.deposit,
+        tenant.lease_start,
+        tenant.lease_end,
+        tenant.registered_by_agent,
+        tenant.authentication_no,
+        tenant.agent_first_name,
+        tenant.agent_sex,
+        tenant.agent_phone,
+        tenant.agent_city,
+        tenant.agent_subcity,
+        tenant.agent_woreda,
+        tenant.agent_house_no,
+        tenant.eeu_payment,
+        tenant.generator_payment,
+        tenant.water_payment,
+        tenant.terminated,
+        tenant.building_id,
+        tenant.created_at,
+        tenant.rent_start_date,
+        tenant.rent_end_date,
+        tenant.password,
+        rooms.roomName AS roomName,
+        IFNULL(rooms.monthlyRent, 0) AS monthlyRent,
+        IFNULL(rooms.eeuReader, 0) AS eeuReader, -- Added eeuReader
+        IFNULL(rooms.water_reader, 0) AS water_reader, -- Added water_reader
+        IFNULL(electricity.last_reading, 0) AS last_eeu_reading,
+        IFNULL(water_usage.last_reading, 0) AS last_water_reading,
+        IFNULL(generator_usage.last_reading, 0) AS last_generator_reading
+      FROM tenants tenant
+      LEFT JOIN rooms rooms
+        ON tenant.room = rooms.id
+      LEFT JOIN (
+        SELECT tenant_id, MAX(current_reading) AS last_reading
+        FROM tenant_utility_usage
+        WHERE utility_type = 'electricity'
+        GROUP BY tenant_id
+      ) electricity ON tenant.id = electricity.tenant_id
+      LEFT JOIN (
+        SELECT tenant_id, MAX(current_reading) AS last_reading
+        FROM tenant_utility_usage
+        WHERE utility_type = 'water'
+        GROUP BY tenant_id
+      ) water_usage ON tenant.id = water_usage.tenant_id
+      LEFT JOIN (
+        SELECT tenant_id, MAX(current_reading) AS last_reading
+        FROM tenant_utility_usage
+        WHERE utility_type = 'generator'
+        GROUP BY tenant_id
+      ) generator_usage ON tenant.id = generator_usage.tenant_id;
+    `;
 
-        const [results] = await db.query(query);
-        results.forEach((row) => {
-            // console.log(`Tenant ID: ${row.id}`);
-            // console.log(`Tenant room (ID): ${row.room}, Room Name: ${row.roomName}`);
-        });
-        res.status(200).json(results);
-    } catch (error) {
-        console.error("Error fetching tenants:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+    const [results] = await db.query(query);
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching tenants:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
