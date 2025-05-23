@@ -72,6 +72,7 @@ function TenantInfo() {
 
   return (
     <div style={{ padding: "30px", backgroundColor: '#f7f7f7' }}>
+      {/* Changed the title to display tenant's full name instead of ID */}
       <Title level={2} style={{ marginBottom: "20px", color: '#1890ff' }}>
         Tenant Details: {tenant.full_name}
       </Title>

@@ -9,12 +9,13 @@ import {
 import {
     Layout,
     theme,
-    Breadcrumb,
+    // Breadcrumb is no longer used in the Header, but keep if used elsewhere
     Button,
     Menu,
     Dropdown,
     Badge,
     Tabs,
+    Typography, // Import Typography for Title and Text
 } from 'antd';
 import {
     FaAngleLeft,
@@ -45,7 +46,7 @@ import Termination from './pages/termination/Termination';
 import { FaPeopleRoof } from 'react-icons/fa6';
 import { RiHomeOfficeLine } from 'react-icons/ri';
 import { TbZoomMoney } from 'react-icons/tb';
-import { GrHostMaintenance } from 'react-icons/gr';
+import { GrHostMaintenance } from 'react-icons/gr'; // Assuming this import is correct
 import { IoNotifications } from 'react-icons/io5';
 import { LuUtilityPole } from 'react-icons/lu';
 import Utility from './pages/Utility/Utility';
@@ -57,23 +58,30 @@ import { HiOutlineDocumentReport } from "react-icons/hi";
 import ReportPage from './pages/report/ReportPage';
 
 const { Header, Content, Sider } = Layout;
+const { Title: TypographyTitle, Text } = Typography; // Alias Title and import Text
 
 const App = () => {
-    
+
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
     const [collapsed, setCollapsed] = useState(false);
-    // const [owner, setOwner] = useState(null); // No longer needed here
+    // Access buildingName directly from useAuth as you've added it there
+    const { role, account, accountType, authLoading, logout, isLoggingOut, buildingName } = useAuth();
+
     const navigate = useNavigate();
     const location = useLocation();
-    // const [authLoading, setAuthLoading] = useState(true); // Handled by context
-    const { role, account, accountType, authLoading,logout,isLoggingOut } = useAuth();
-      const owner = accountType === "owner" ? account : null;
-      const user = accountType === "user" ? account : null
-      if (!owner && !user) {
-        navigate("/");
-      }
+
+    const owner = accountType === "owner" ? account : null;
+    const user = accountType === "user" ? account : null
+
+    // useEffect hook handles navigation based on auth state
+    useEffect(() => {
+        if (!authLoading && !owner && !user && location.pathname !== "/") {
+            navigate("/");
+        }
+    }, [authLoading, owner, user, navigate, location.pathname]);
+
 
     const items = [
         {
@@ -83,91 +91,75 @@ const App = () => {
         },
         {
             key: '2',
-            label:  role === "maintenance"
-            ? "Maintenance Dashboard"
-            : role === "finance"
-            ? "Finance Dashboard"
-            : "Owner Dashboard",
+            label: role === "maintenance"
+                ? "Maintenance Dashboard"
+                : role === "finance"
+                    ? "Finance Dashboard"
+                    : "Owner Dashboard",
             icon: <MdAdminPanelSettings size={20} />,
             children:
-              role === "maintenance"
-                ? [
-                    {
-                      key: '6',
-                      label: (
-                        <Link to={'/maintenance-requests'}>
-                          <GrHostMaintenance /> Maintenance Requests
-                        </Link>
-                      ),
-                    },
-                  ]
-                : [
-                    {
-                      key: '1',
-                      label: (
-                        <Link to={'/tenants'}>
-                          <FaPeopleRoof /> Tenants
-                        </Link>
-                      ),
-                    },
-                    {
-                      key: '3',
-                      label: (
-                        <Link to={'/stall-management'}>
-                          <RiHomeOfficeLine /> Stall Management
-                        </Link>
-                      ),
-                    },
-                    // {
-                    //   key: '4',
-                    //   label: (
-                    //     <Link to={'/lease-agreements'}>
-                    //       <FaRegNewspaper /> Lease Agreements
-                    //     </Link>
-                    //   ),
-                    // },
-                    {
-                      key: '4',
-                      label: (
-                        <Link to={'/payments'}>
-                          <TbZoomMoney /> Payments
-                        </Link>
-                      ),
-                    },
-                    {
-                      key: '5',
-                      label: (
-                        <Link to={'/maintenance-requests'}>
-                          <GrHostMaintenance /> Maintenance Requests
-                        </Link>
-                      ),
-                    },
-                    // {
-                    //   key: '7',
-                    //   label: (
-                    //     <Link to={'/reminders-notifications'}>
-                    //       <IoNotifications /> Reminders And Notifications
-                    //     </Link>
-                    //   ),
-                    // },
-                    {
-                      key: '6',
-                      label: (
-                        <Link to={'/reports'}>
-                          <HiOutlineDocumentReport /> Reports
-                        </Link>
-                      ),
-                    },
-                  ],
-          },          
+                role === "maintenance"
+                    ? [
+                        {
+                            key: '6',
+                            label: (
+                                <Link to={'/maintenance-requests'}>
+                                    <GrHostMaintenance /> Maintenance Requests
+                                </Link>
+                            ),
+                        },
+                    ]
+                    : [
+                        {
+                            key: '1',
+                            label: (
+                                <Link to={'/tenants'}>
+                                    <FaPeopleRoof /> Tenants
+                                </Link>
+                            ),
+                        },
+                        {
+                            key: '3',
+                            label: (
+                                <Link to={'/stall-management'}>
+                                    <RiHomeOfficeLine /> Stall Management
+                                </Link>
+                            ),
+                        },
+                        {
+                            key: '4',
+                            label: (
+                                <Link to={'/payments'}>
+                                    <TbZoomMoney /> Payments
+                                </Link>
+                            ),
+                        },
+                        {
+                            key: '5',
+                            label: (
+                                <Link to={'/maintenance-requests'}>
+                                    <GrHostMaintenance /> Maintenance Requests
+                                </Link>
+                            ),
+                        },
+                        {
+                            key: '6',
+                            label: (
+                                <Link to={'/reports'}>
+                                    <HiOutlineDocumentReport /> Reports
+                                </Link>
+                            ),
+                        },
+                    ],
+        },
         ...(owner
             ? [
                 {
-                  key: "/users",
-                  label: <Link to="/users/list">Users</Link>,
-                  icon: <FaUserShield size={20} />,
+                    key: "/users",
+                    label: <Link to="/users/list">Users</Link>,
+                    icon: <FaUserShield size={20} />,
                 },
-              ]
+            ]
             : []),
     ];
     const getLevelKeys = (items1) => {
@@ -206,8 +198,33 @@ const App = () => {
         }
     };
 
+    // Logic to determine the current page title based on the path
     const pathName = useLocation().pathname;
     const paths = pathName.split('/').filter((path) => path);
+
+    let pageTitle = 'Dashboard'; // Default title for '/'
+    if (paths.length > 0) {
+        // Use the first path segment, capitalize it
+        let firstSegment = paths[0].charAt(0).toUpperCase() + paths[0].slice(1);
+        pageTitle = firstSegment; // Use the first segment as the default title
+
+        // You can add specific overrides for multi-segment paths if needed,
+        // though usually the first segment is sufficient for a main section title.
+        // Example: If you wanted '/users/list' to show 'Users List' instead of 'Users':
+        // if (paths[0] === 'users' && paths[1] === 'list') pageTitle = 'Users List';
+        // For tenant details '/tenants/:id', the first segment 'tenants' is still the relevant section title.
+        // Same for '/rent-info/:billId', 'rent-info' -> 'Rent-info' (or maybe 'Payments' depending on preference)
+        if (paths[0] === 'rent-info') pageTitle = 'Payments'; // Example override
+        if (paths[0] === 'stall-management') pageTitle = 'Stall Management';
+        if (paths[0] === 'maintenance-requests') pageTitle = 'Maintenance Requests';
+        if (paths[0] === 'reminders-notifications') pageTitle = 'Notifications'; // Shorter name
+        if (paths[0] === 'users') pageTitle = 'Users';
+        if (paths[0] === 'utility') pageTitle = 'Utility';
+         if (paths[0] === 'reports') pageTitle = 'Reports';
+
+
+    }
+
 
     const [openValue, setOpenValue] = useState(false);
     const [openTitle, setTitle] = useState(false);
@@ -244,7 +261,7 @@ const App = () => {
                     style={{ width: '100%', display: 'flex', alignItems: 'center' }}
                     onClick={() => {
                         setOpenValue(true);
-                        setOpenContent(<NewUserForm />);
+                        setOpenContent(<NewUserForm />); // Or a specific Profile form
                         setTitle('Profile');
                     }}
                 >
@@ -270,18 +287,18 @@ const App = () => {
             key: '3',
             label: (
                 <span
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: isLoggingOut ? "not-allowed" : "pointer",
-                  opacity: isLoggingOut ? 0.5 : 1,
-                  transition: "opacity 0.2s ease-in-out"
-                }}
-                onClick={logout}
-              >
-                Logout
-              </span>
+                    style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        cursor: isLoggingOut ? "not-allowed" : "pointer",
+                        opacity: isLoggingOut ? 0.5 : 1,
+                        transition: "opacity 0.2s ease-in-out"
+                    }}
+                    onClick={logout}
+                >
+                    Logout
+                </span>
             ),
         },
     ];
@@ -292,7 +309,7 @@ const App = () => {
             label: (
                 <Tabs
                     defaultActiveKey="1"
-                    items={paths.includes('administrators') ? tabs : tabs}
+                    items={tabs} // Removed condition based on paths
                     style={{ width: '350px', height: '450px' }}
                     onChange={(c) => !c}
                 />
@@ -300,18 +317,22 @@ const App = () => {
         },
     ];
     const [visible, setVisible] = useState(false);
-    useEffect(() => {
-        if (!authLoading && !owner && !user) {
-          navigate("/");
-        }
-      }, [authLoading, owner, user, navigate]);
+
+
     if (authLoading) {
         return <div>Loading...</div>;
     }
 
+    // Redirect unauthenticated users to login, except for the login page itself
+    if (!owner && !user && location.pathname !== "/") {
+         return <Auth />; // Or a loading/redirecting message
+    }
+
+
     return (
         <div>
             <Layout style={{ height: '100vh' }}>
+                {/* ModalForm and Sider remain here */}
                 <ModalForm
                     open={openValue}
                     close={() => setOpenValue(false)}
@@ -323,8 +344,9 @@ const App = () => {
                     collapsible
                     collapsed={collapsed}
                     theme="light"
-                    style={{ overflow: 'scroll' }}
+                    style={{ overflow: 'auto', height: '100vh' }}
                 >
+                     {/* Logo and Menu */}
                     <div
                         style={{
                             width: '100%',
@@ -345,94 +367,156 @@ const App = () => {
                         openKeys={stateOpenKeys}
                         onOpenChange={onOpenChange}
                         theme="light"
-                        style={{ overflow: 'hidden', width: '100%' }}
+                        style={{ width: '100%', borderRight: 0 }}
                         mode="inline"
                         items={items}
                     />
-                    <div style={{ height: '80px' }}></div>
                     <div style={{ marginTop: 'auto' }}>
                         {
-                            role === "finance" ? 
-                            (<Menu>
-                                <Menu.Item key="/utility" icon={<LuUtilityPole size={20} />}>
-                                    <Link to="/utility/list">Utility</Link>
-                                </Menu.Item>
-                            </Menu>)
-                        :null}
+                            role === "finance" ?
+                                (<Menu>
+                                    <Menu.Item key="/utility" icon={<LuUtilityPole size={20} />}>
+                                        <Link to="/utility/list">Utility</Link>
+                                    </Menu.Item>
+                                </Menu>)
+                                : null}
                     </div>
                 </Sider>
-                <Layout>
-                    <Header
-                        style={{
-                            padding: '0 16px',
-                            background: colorBgContainer,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '10px',
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Button
-                                    type="text"
-                                    icon={collapsed ? <FaAngleRight /> : <FaAngleLeft />}
-                                    onClick={() => setCollapsed(!collapsed)}
-                                    style={{
-                                        fontSize: '16px',
-                                        width: 30,
-                                        height: 64,
-                                    }}
-                                />
-                            </div>
-                            <Breadcrumb separator={<FaAngleRight />}>
-                                {paths.map((path, index) => {
-                                    const url = '/' + paths.slice(0, index + 1).join('/');
-                                    return (
-                                        <Breadcrumb.Item key={path}>
-                                            {path.toLocaleUpperCase()}
-                                        </Breadcrumb.Item>
-                                    );
-                                })}
-                            </Breadcrumb>
-                        </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <Dropdown
-                                visible={visible}
-                                onVisibleChange={(v) => setVisible(v)}
-                                menu={{
-                                    items: items2,
-                                    onClick: () => setVisible(true),
-                                }}
-                                placement="bottomRight"
-                                trigger={['click']}
-                            >
-                                <Badge size="small" count={0}>
-                                    <IoNotificationsCircle size={26} cursor={'pointer'} />
-                                </Badge>
-                            </Dropdown>
-                            <Dropdown
-                                menu={{
-                                    items: items1,
-                                }}
-                                placement="bottomRight"
-                                trigger={['click']}
-                            >
-                                <IoSettingsOutline size={22} cursor={'pointer'} />
-                            </Dropdown>
-                        </div>
-                    </Header>
+                <Layout>
+                    {/* MODIFIED HEADER SECTION */}
+                    <Header
+  style={{
+    padding: '0 16px',
+    background: colorBgContainer,
+    position: 'relative', // Required for absolute positioning center
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  }}
+>
+  {/* Left Section */}
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      flexShrink: 0,
+      minWidth: '200px', // Fixed width to avoid pushing center
+    }}
+  >
+    <Button
+      type="text"
+      icon={collapsed ? <FaAngleRight /> : <FaAngleLeft />}
+      onClick={() => setCollapsed(!collapsed)}
+      style={{
+        fontSize: '16px',
+        width: 30,
+        height: 64,
+      }}
+    />
+    <Typography.Text
+  strong
+  style={{
+    fontSize: '16px',
+    background: 'linear-gradient(90deg, #ff6ec4, #7873f5, #4ade80)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    whiteSpace: 'nowrap',
+  }}
+>
+  {pageTitle}
+</Typography.Text>
+
+  </div>
+
+  {/* Center Section: Absolutely Centered Title */}
+  <div style={{ 
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  pointerEvents: 'none', // lets clicks go to left/right elements
+}}>
+  <div style={{ 
+    maxWidth: '80%', // adapt to screen, but keep it from stretching too far
+    textAlign: 'center',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  }}>
+    <TypographyTitle 
+      level={4} 
+      style={{ 
+        margin: 0, 
+        background: 'linear-gradient(90deg, #ff6ec4, #7873f5, #4ade80)', 
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        fontWeight: 'bold',
+        fontSize: '1.3rem',
+        textTransform: 'uppercase',
+        letterSpacing: '1px',
+        pointerEvents: 'auto', // re-enable interactions here
+      }}
+    >
+      {buildingName || 'BUILDING NAME'}
+    </TypographyTitle>
+  </div>
+</div>
+
+
+  {/* Right Section */}
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+      flexShrink: 0,
+      minWidth: '150px', // Match to avoid pushing
+      justifyContent: 'flex-end',
+    }}
+  >
+    <Dropdown
+      visible={visible}
+      onVisibleChange={(v) => setVisible(v)}
+      menu={{
+        items: items2,
+        onClick: () => setVisible(true),
+      }}
+      placement="bottomRight"
+      trigger={['click']}
+    >
+      <Badge size="small" count={0}>
+        <IoNotificationsCircle size={26} cursor="pointer" />
+      </Badge>
+    </Dropdown>
+    <Dropdown
+      menu={{ items: items1 }}
+      placement="bottomRight"
+      trigger={['click']}
+    >
+      <IoSettingsOutline size={22} cursor="pointer" />
+    </Dropdown>
+  </div>
+</Header>
+
+                    {/* END OF MODIFIED HEADER SECTION */}
+
                     <Content
                         style={{
-                            overflow: 'scroll',
                             margin: '16px 8px 0',
+                            overflow: 'auto',
                         }}
                     >
+                         {/* Routes */}
                         <div
                             style={{
                                 padding: 8,
-                                minHeight: '100%',
+                                minHeight: 'calc(100vh - 112px)',
                                 background: colorBgContainer,
                                 borderRadius: borderRadiusLG,
                             }}
