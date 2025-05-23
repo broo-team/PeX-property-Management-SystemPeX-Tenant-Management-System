@@ -289,10 +289,10 @@ export default function DashboardCards() {
                                'Maintenance Request'}
                             </p>
                             <p className="text-sm text-emerald-600 truncate">
-                              {item.type === 'lease' ? formatCurrency(item.totalDue) :
-                               item.type === 'utility' ? `${item.current_reading} kWh` :
-                               item.category}
-                            </p>
+  {item.type === 'lease' ? formatCurrency(item.totalDue) :
+   item.type === 'utility' ? `${(parseFloat(item.current_reading) - parseFloat(item.previous_reading)).toFixed(2)} kWh` : // Corrected line
+   item.category}
+</p>
                           </div>
                           <div className="flex-shrink-0 text-sm text-emerald-500">
                             {formatDate(item.createdAt)}
