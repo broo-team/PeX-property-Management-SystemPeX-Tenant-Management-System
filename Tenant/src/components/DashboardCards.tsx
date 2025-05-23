@@ -207,7 +207,12 @@ export default function DashboardCards() {
       ) : (
         <>
           <span className="bg-gradient-to-r from-yellow-100 via-white to-yellow-300 bg-clip-text text-transparent drop-shadow-sm">
-            {utilityBills.reduce((total, bill) => total + bill.current_reading, 0)}
+            {utilityBills.reduce((total, bill) => {
+              const previous = parseFloat(bill.previous_reading);
+              const current = parseFloat(bill.current_reading);
+              const kwhUsed = current - previous;
+              return total + kwhUsed;
+            }, 0).toFixed(2)} {/* Added .toFixed(2) to format to 2 decimal places */}
           </span>
           <span className="text-sm text-emerald-100 font-medium mb-1">kWh</span>
         </>
@@ -215,7 +220,6 @@ export default function DashboardCards() {
     </div>
   </CardContent>
 </Card>
-
 
 <Card className="bg-gradient-to-br from-emerald-300 to-emerald-400 shadow-xl hover:shadow-emerald-200/60 transition-all duration-300 rounded-2xl">
   <CardHeader className="flex flex-row items-center justify-between pb-2">
