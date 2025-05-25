@@ -354,3 +354,4 @@ const RentInfo = (props) => {
 export default RentInfo;
 
 // https://copilot.microsoft.com/chats/T62CWs8XtpwHYUSYh9tQE
+// https://copilot.microsoft.com/chats/bwAVEASEY9gC5zc2Yjtdp

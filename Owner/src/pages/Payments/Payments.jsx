@@ -1,661 +1,4 @@
-// import React, { useState, useEffect } from "react";
-// import {
-//   Table,
-//   Card,
-//   Button,
-//   Space,
-//   message,
-//   DatePicker,
-//   Input,
-//   Modal,
-//   Form,
-//   InputNumber,
-//   Typography,
-// } from "antd";
-// import dayjs from "dayjs";
-// import { CheckCircleOutlined, ReloadOutlined } from "@ant-design/icons";
-// import axios from "axios";
-
-// const { Title } = Typography;
-
-// // Set penalty rate (e.g. 0.01 = 1%)
-// const PENALTY_RATE = 0.01;
-
-// // Define utility types. Note: For electricity, flag is "eeu_payment"
-// const utilityTypes = [
-//   { key: "electricity", label: "EEU", paymentField: "eeu_payment" },
-//   { key: "water", label: "Water", paymentField: "water_payment" },
-//   { key: "generator", label: "Generator", paymentField: "generator_payment" },
-// ];
-
-// /*
-//   getUtilitySectionLabel(record)
-//   Based on the usage records and their dates, if any record is older than the due date plus a 3-day grace period,
-//   the label will be "Generate Bill" (for renewal). Otherwise, it shows "View Bill".
-// */
-// const getUtilitySectionLabel = (record) => {
-//   // If no utility usage exists, let the user generate a bill
-//   if (!record.utility_usage || Object.keys(record.utility_usage).length === 0) {
-//     return "Generate Bill";
-//   }
-//   const now = dayjs();
-//   // Use the tenant's payment term or default to 30 days
-//   const paymentTerm = Number(record.payment_term) || 30;
-//   // Set reminder to be triggered when there are 10 days remaining in the term
-//   const reminderThreshold = paymentTerm - 10;
-//   let renew = false;
-//   Object.values(record.utility_usage).forEach((usage) => {
-//     // Calculate the threshold date: when the bill should be re‑generated
-//     const thresholdDate = dayjs(usage.created_at).add(reminderThreshold, "day");
-//     if (now.isAfter(thresholdDate)) {
-//       renew = true;
-//     }
-//   });
-//   return renew ? "Generate Bill" : "View Bill";
-// };
-
-
-// // Helper: Compute minimum days left across a tenant's utility records (lower means closer to overdue)
-// const computeMinDaysLeft = (tenant) => {
-//   if (!tenant.utility_usage || Object.keys(tenant.utility_usage).length === 0) {
-//     return Infinity;
-//   }
-//   const paymentTerm = Number(tenant.payment_term) || 30;
-//   const reminderThreshold = paymentTerm - 10;
-//   let minDays = Infinity;
-//   Object.values(tenant.utility_usage).forEach((usage) => {
-//     const daysLeft = dayjs(usage.created_at)
-//       .add(reminderThreshold, "day")
-//       .diff(dayjs(), "day");
-//     if (daysLeft < minDays) {
-//       minDays = daysLeft;
-//     }
-//   });
-//   return minDays;
-// };
-
-// const Payments = () => {
-//   const [payments, setPayments] = useState([]);
-//   const [filteredPayments, setFilteredPayments] = useState([]);
-//   const [isModalVisible, setIsModalVisible] = useState(false); // For meter reading input.
-//   const [isProofModalVisible, setIsProofModalVisible] = useState(false); // For uploading payment proof.
-//   const [isBillModalVisible, setIsBillModalVisible] = useState(false); // For viewing bill details.
-//   const [selectedPayment, setSelectedPayment] = useState(null);
-//   const [form] = Form.useForm();
-//   const [proofForm] = Form.useForm();
-
-//   // ---------------------------
-//   // fetchData: Update overdue penalties then fetch tenants and usage records.
-//   // Group usage records by utility type.
-//   // Sort tenants so those with bills nearing due/overdue appear first.
-//   // ---------------------------
-//   const fetchData = async () => {
-//     try {
-//       // Update overdue bills: note the corrected HTTP method and URL.
-//       await axios.patch("http://localhost:5000/api/rent/updateOverdue");
-  
-//       const [tenantsRes, usageRes] = await Promise.all([
-//         axios.get("http://localhost:5000/api/tenants"),
-//         axios.get("http://localhost:5000/api/utilities/tenant_utility_usage"),
-//       ]);
-  
-//       // Log the responses to verify data
-//       console.log("Tenants data:", tenantsRes.data);
-//       console.log("Utility usage data:", usageRes.data);
-      
-//       // Your merging logic...
-//       const mergedData = tenantsRes.data.map((tenant) => {
-//         const usages = usageRes.data.filter(
-//           (u) => Number(u.tenant_id) === Number(tenant.id)
-//         );
-//         const utilityRecords = {};
-//         usages.forEach((u) => {
-//           const key = u.utility_type;
-//           if (!utilityRecords[key] || Number(u.id) > Number(utilityRecords[key].id)) {
-//             utilityRecords[key] = u;
-//           }
-//         });
-//         return { ...tenant, utility_usage: utilityRecords };
-//       });
-//       const activeData = mergedData.filter((tenant) => !tenant.terminated);
-//       activeData.sort((a, b) => computeMinDaysLeft(a) - computeMinDaysLeft(b));
-//       setPayments(activeData);
-//       setFilteredPayments(activeData);
-//     } catch (error) {
-//       console.error("Error details:", error.response || error);
-//       message.error("Failed to fetch tenant and bill data.");
-//     }
-//   };
-  
-
-//   useEffect(() => {
-//     setFilteredPayments(payments);
-//   }, [payments]);
-
-//   // ---------------------------
-//   // Pre-populate meter reading form fields when a tenant is selected.
-//   // ---------------------------
-//   useEffect(() => {
-//     if (selectedPayment && selectedPayment.utility_usage) {
-//       const fields = {};
-//       utilityTypes.forEach(({ key, paymentField }) => {
-//         if (selectedPayment[paymentField] && selectedPayment.utility_usage[key]) {
-//           fields[`${key}_previous`] = Number(
-//             selectedPayment.utility_usage[key].current_reading
-//           );
-//         }
-//       });
-//       form.setFieldsValue(fields);
-//     }
-//   }, [selectedPayment, form]);
-
-//   // ---------------------------
-//   // Handler: Mark a tenant's regular rent payment as paid.
-//   // ---------------------------
-//   const handleMarkAsPaid = async (tenantId) => {
-//     try {
-//       await axios.put(`http://localhost:5000/api/tenants/${tenantId}/pay`);
-//       message.success("Payment marked as Paid!");
-//       fetchData();
-//     } catch (error) {
-//       message.error("Failed to update payment status");
-//       console.error(error);
-//     }
-//   };
-
-//   // ---------------------------
-//   // Search Function: Filter tenants by name.
-//   // ---------------------------
-//   const handleSearch = (filters) => {
-//     const filtered = payments.filter((payment) => {
-//       const matchesTenant = filters.tenantName
-//         ? payment.full_name.toLowerCase().includes(filters.tenantName.toLowerCase())
-//         : true;
-//       return matchesTenant;
-//     });
-//     setFilteredPayments(filtered.length > 0 ? filtered : payments);
-//   };
-
-//   // ---------------------------
-//   // Meter Reading Modal Handlers
-//   // ---------------------------
-//   const showUtilityModal = (payment) => {
-//     setSelectedPayment(payment);
-//     form.resetFields();
-//     setIsModalVisible(true);
-//   };
-
-//   const handleUtilitySubmit = async () => {
-//     if (!selectedPayment) return message.error("No tenant selected");
-//     try {
-//       const values = await form.validateFields();
-//       const payloads = [];
-//       utilityTypes.forEach(({ key, label, paymentField }) => {
-//         if (selectedPayment[paymentField]) {
-//           if (
-//             values[`${key}_previous`] === undefined ||
-//             values[`${key}_current`] === undefined
-//           ) {
-//             return message.error(`Enter both previous and current ${label} readings`);
-//           }
-//           payloads.push({
-//             tenant_id: selectedPayment.id,
-//             utility_type: key,
-//             previous_reading: values[`${key}_previous`],
-//             current_reading: values[`${key}_current`],
-//           });
-//         }
-//       });
-//       for (const payload of payloads) {
-//         await axios.post("http://localhost:5000/api/utilities/usage", payload);
-//       }
-//       message.success(`Bill Generated for ${payloads.length} utility(ies)!`);
-//       fetchData();
-//       setIsModalVisible(false);
-//     } catch (error) {
-//       message.error("Failed to record utility usage");
-//       console.error(error);
-//     }
-//   };
-
-//   // ---------------------------
-//   // Payment Proof Upload Modal Handlers
-//   // ---------------------------
-//   const showProofModal = (payment) => {
-//     setSelectedPayment(payment);
-//     proofForm.resetFields();
-//     setIsProofModalVisible(true);
-//   };
-
-//   const handleProofSubmit = async () => {
-//     try {
-//       const values = await proofForm.validateFields();
-//       for (const { key, label, paymentField } of utilityTypes) {
-//         if (selectedPayment[paymentField]) {
-//           const usage = selectedPayment.utility_usage ? selectedPayment.utility_usage[key] : null;
-//           if (
-//             usage &&
-//             usage.utility_status === "Bill Generated" &&
-//             values[`${key}_payment_proof_link`]
-//           ) {
-//             const payload = {
-//               tenant_id: selectedPayment.id,
-//               usage_id: usage.id,
-//               payment_proof_link: values[`${key}_payment_proof_link`],
-//             };
-//             await axios.post("http://localhost:5000/api/utilities/confirm", payload);
-//           }
-//         }
-//       }
-//       message.success("Payment proofs submitted successfully. Await admin review.");
-//       fetchData();
-//       setIsProofModalVisible(false);
-//     } catch (err) {
-//       message.error("Failed to submit payment proofs");
-//       console.error(err);
-//     }
-//   };
-
-//   // ---------------------------
-//   // Bill View & Approval Modal Handlers.
-//   // ---------------------------
-//   const showBillModal = (payment) => {
-//     setSelectedPayment(payment);
-//     setIsBillModalVisible(true);
-//   };
-
-//   const handleApproveProof = async () => {
-//     try {
-//       // Optionally, update penalties right before approving.
-//       await axios.put("http://localhost:5000/api/utilities/updatePenalties", {
-//         penaltyRate: PENALTY_RATE,
-//       });
-//       let approvedOne = false;
-//       if (selectedPayment && selectedPayment.utility_usage) {
-//         for (const usage of Object.values(selectedPayment.utility_usage)) {
-//           if (usage.utility_status === "Submitted") {
-//             const payload = { usage_id: usage.id };
-//             await axios.post("http://localhost:5000/api/utilities/approve", payload);
-//             approvedOne = true;
-//           }
-//         }
-//       }
-//       if (approvedOne) {
-//         message.success("Selected payment proofs approved! Status updated to Approved.");
-//       } else {
-//         message.info("No submitted proof available for approval.");
-//       }
-//       fetchData();
-//       setIsBillModalVisible(false);
-//     } catch (error) {
-//       message.error("Failed to approve payment proof(s)");
-//       console.error(error);
-//     }
-//   };
-
-//   // ---------------------------
-//   // Renderers for combined data (showing stored penalty values)
-//   // ---------------------------
-//   const renderDynamicPenaltyCombined = (record) => {
-//     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
-//       return (
-//         <>
-//           {Object.entries(record.utility_usage).map(([ut, usage], index) => {
-//             const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
-//             return (
-//               <span key={ut}>
-//                 <strong>{label}</strong>: birr{Number(usage.penalty || 0).toFixed(2)}
-//                 {index < Object.keys(record.utility_usage).length - 1 ? " | " : ""}
-//               </span>
-//             );
-//           })}
-//         </>
-//       );
-//     }
-//     return "-";
-//   };
-
-//   const renderDynamicDueInfoCombined = (record) => {
-//     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
-//       return (
-//         <>
-//           {Object.entries(record.utility_usage).map(([ut, usage], index) => {
-//             const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
-//             const dueDate = dayjs(usage.created_at).add(30, "day");
-//             const diffDays = dueDate.diff(dayjs(), "day");
-//             return (
-//               <span key={ut}>
-//                 {label}: {diffDays >= 0 ? `${diffDays} day(s) left` : "Overdue"}
-//                 {index < Object.keys(record.utility_usage).length - 1 ? " | " : ""}
-//               </span>
-//             );
-//           })}
-//         </>
-//       );
-//     }
-//     return "-";
-//   };
-
-//   const renderUtilityStatusCombined = (record) => {
-//     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
-//       return (
-//         <>
-//           {Object.entries(record.utility_usage).map(([ut, usage], index) => {
-//             const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
-//             return (
-//               <span key={ut}>
-//                 {label}: {usage.utility_status}
-//                 {index < Object.keys(record.utility_usage).length - 1 ? " | " : ""}
-//               </span>
-//             );
-//           })}
-//         </>
-//       );
-//     }
-//     return record.status || "-";
-//   };
-
-//   const renderActionsCombined = (record) => {
-//     const actions = [];
-//     if (record.status === "Unpaid") {
-//       actions.push(
-//         <Button type="link" onClick={() => handleMarkAsPaid(record.id)} key="pay">
-//           Pay
-//         </Button>
-//       );
-//     }
-//     if (
-//       record.utility_usage &&
-//       Object.values(record.utility_usage).some((usage) => usage.utility_status === "Bill Generated")
-//     ) {
-//       actions.push(
-//         <Button type="link" onClick={() => showProofModal(record)} key="upload">
-//           Upload Payment Proof
-//         </Button>
-//       );
-//     }
-//     if (
-//       record.utility_usage &&
-//       Object.values(record.utility_usage).some((usage) => usage.utility_status === "Submitted")
-//     ) {
-//       actions.push(
-//         <Button type="link" onClick={() => showBillModal(record)} key="view-approve">
-//           View & Approve Proof
-//         </Button>
-//       );
-//     }
-//     return <Space size="middle">{actions}</Space>;
-//   };
-
-//   // ---------------------------
-//   // Table columns definition.
-//   // ---------------------------
-//   const columns = [
-//     { title: "Tenant Name", dataIndex: "full_name", key: "full_name" },
-//     { title: "Room", dataIndex: "room", key: "room" },
-//     { title: "Payment Term", dataIndex: "payment_term", key: "payment_term" },
-//     {
-//       title: "Due Date",
-//       dataIndex: "paymentDuty",
-//       key: "paymentDuty",
-//       render: (duty) => dayjs(duty).format("YYYY-MM-DD"),
-//     },
-//     {
-//       title: "Utility Section",
-//       key: "utilitySection",
-//       render: (_, record) => (
-//         <Button
-//           icon={<CheckCircleOutlined />}
-//           onClick={() => {
-//             if (getUtilitySectionLabel(record) === "Generate Bill") {
-//               showUtilityModal(record);
-//             } else {
-//               showBillModal(record);
-//             }
-//           }}
-//         >
-//           {getUtilitySectionLabel(record)}
-//         </Button>
-//       ),
-//     },
-//     { title: "Amount", dataIndex: "amount", key: "amount" },
-//     { title: "Status", dataIndex: "status", key: "status" },
-//     {
-//       title: "Utility Status",
-//       key: "utility_status",
-//       render: (_, record) => renderUtilityStatusCombined(record),
-//     },
-//     {
-//       title: "Payment Proof",
-//       key: "payment_proof_link",
-//       render: (_, record) =>
-//         record.payment_proof_link ||
-//         (record.utility_usage &&
-//           Object.values(record.utility_usage).some((u) => u.payment_proof_link)) ? (
-//           <Button type="link" onClick={() => showBillModal(record)}>
-//             View Proof
-//           </Button>
-//         ) : (
-//           "-"
-//         ),
-//     },
-//     {
-//       title: "Penalty",
-//       key: "penalty",
-//       render: (_, record) => renderDynamicPenaltyCombined(record),
-//     },
-//     {
-//       title: "Due Info",
-//       key: "dueInfo",
-//       render: (_, record) => renderDynamicDueInfoCombined(record),
-//     },
-//     { title: "Actions", key: "actions", render: (_, record) => renderActionsCombined(record) },
-//   ];
-
-//   const containerStyle = {
-//     maxWidth: "1200px",
-//     margin: "0 auto",
-//     padding: "16px",
-//   };
-
-//   return (
-//     <div style={containerStyle}>
-//       <Card style={{ marginBottom: "16px" }}>
-//         <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
-//           <Title level={3}>Payments Dashboard</Title>
-//           <div>
-//             <Input
-//               placeholder="Search by Tenant Name"
-//               onChange={(e) => handleSearch({ tenantName: e.target.value })}
-//               style={{ width: 200, marginRight: 8, marginBottom: "8px" }}
-//             />
-//             <DatePicker
-//               placeholder="Search by Payment Date"
-//               onChange={(date) => handleSearch({ paymentDate: date })}
-//               style={{ marginRight: 8, marginBottom: "8px" }}
-//             />
-//             <Button icon={<ReloadOutlined />} onClick={fetchData}>
-//               Refresh
-//             </Button>
-//           </div>
-//         </Space>
-//       </Card>
-//       <Card>
-//         <Table
-//           columns={columns}
-//           dataSource={filteredPayments.length > 0 ? filteredPayments : payments}
-//           rowKey="id"
-//           scroll={{ x: true }}
-//           size="small"
-//         />
-//       </Card>
-
-//       {/* Meter Reading Modal */}
-//       <Modal
-//         title="Enter Utility Meter Readings"
-//         visible={isModalVisible}
-//         onCancel={() => setIsModalVisible(false)}
-//         onOk={handleUtilitySubmit}
-//       >
-//         <Form form={form} layout="vertical">
-//           {utilityTypes.map(({ key, label, paymentField }) => {
-//             if (selectedPayment && selectedPayment[paymentField]) {
-//               return (
-//                 <React.Fragment key={key}>
-//                   <Form.Item
-//                     label={`${label} Previous Reading`}
-//                     name={`${key}_previous`}
-//                     rules={[{ required: true, message: `Enter previous ${label} reading` }]}
-//                   >
-//                     <InputNumber min={0} style={{ width: "100%" }} />
-//                   </Form.Item>
-//                   <Form.Item
-//                     label={`${label} Current Reading`}
-//                     name={`${key}_current`}
-//                     rules={[{ required: true, message: `Enter current ${label} reading` }]}
-//                   >
-//                     <InputNumber min={0} style={{ width: "100%" }} />
-//                   </Form.Item>
-//                 </React.Fragment>
-//               );
-//             }
-//             return null;
-//           })}
-//         </Form>
-//       </Modal>
-
-//       {/* Payment Proof Upload Modal */}
-//       <Modal
-//         title="Upload Payment Proof"
-//         visible={isProofModalVisible}
-//         onCancel={() => setIsProofModalVisible(false)}
-//         onOk={handleProofSubmit}
-//       >
-//         <Form form={proofForm} layout="vertical">
-//           {utilityTypes.map(({ key, label, paymentField }) => {
-//             if (
-//               selectedPayment &&
-//               selectedPayment[paymentField] &&
-//               selectedPayment.utility_usage &&
-//               selectedPayment.utility_usage[key] &&
-//               selectedPayment.utility_usage[key].utility_status === "Bill Generated"
-//             ) {
-//               return (
-//                 <Form.Item
-//                   key={key}
-//                   label={`${label} Payment Proof`}
-//                   name={`${key}_payment_proof_link`}
-//                   rules={[
-//                     { required: true, message: `Enter the ${label} Payment Proof URL` },
-//                   ]}
-//                 >
-//                   <Input placeholder={`Enter URL for ${label} Payment Proof`} />
-//                 </Form.Item>
-//               );
-//             }
-//             return null;
-//           })}
-//         </Form>
-//       </Modal>
-
-//       {/* Bill View & Approval Modal */}
-//       <Modal
-//         title="View Bill Details"
-//         visible={isBillModalVisible}
-//         onCancel={() => setIsBillModalVisible(false)}
-//         footer={[
-//           <Button key="close" onClick={() => setIsBillModalVisible(false)}>
-//             Close
-//           </Button>,
-//           selectedPayment &&
-//             selectedPayment.utility_usage &&
-//             Object.values(selectedPayment.utility_usage).some(
-//               (usage) => usage.utility_status === "Submitted"
-//             ) && (
-//               <Button key="approve" type="primary" onClick={handleApproveProof}>
-//                 Approve Payment Proof
-//               </Button>
-//             ),
-//         ]}
-//       >
-//         {selectedPayment && (
-//           <div>
-//             {utilityTypes.map(({ key, label }) => {
-//               const usage =
-//                 selectedPayment.utility_usage &&
-//                 selectedPayment.utility_usage[key]
-//                   ? selectedPayment.utility_usage[key]
-//                   : null;
-//               return usage ? (
-//                 <div
-//                   key={key}
-//                   style={{
-//                     marginBottom: "1em",
-//                     borderBottom: "1px solid #eee",
-//                     paddingBottom: "0.5em",
-//                   }}
-//                 >
-//                   <p>
-//                     <strong>{label} Details:</strong>
-//                   </p>
-//                   <p>
-//                     <strong>Cost:</strong> birr{usage.cost || "N/A"}
-//                   </p>
-//                   <p>
-//                     <strong>Penalty:</strong> birr{(Number(usage.penalty) || 0).toFixed(2)}
-//                   </p>
-//                   <p>
-//                     <strong>Total Due:</strong>{" "}
-//                     birr{(Number(usage.cost) + Number(usage.penalty)).toFixed(2)}
-//                   </p>
-//                   <p>
-//                     <strong>Status:</strong> {usage.utility_status}
-//                   </p>
-//                   {usage.payment_proof_link ? (
-//                     <div>
-//                       <p>
-//                         <strong>{label} Payment Proof:</strong>
-//                       </p>
-//                       <img
-//                         src={usage.payment_proof_link}
-//                         alt={`${label} Payment Proof`}
-//                         style={{ width: "100%" }}
-//                       />
-//                     </div>
-//                   ) : (
-//                     <p>No Payment Proof Submitted for {label}.</p>
-//                   )}
-//                   {usage.utility_status === "Bill Generated" &&
-//   dayjs().isAfter(
-//     dayjs(usage.created_at).add(selectedPayment.payment_term || 30, "day")
-//   ) && (
-//     <p style={{ color: "red" }}>
-//       Late Payment History: This bill is overdue. Please generate a new bill to renew.
-//     </p>
-// )}
-// {usage.utility_status === "Bill Generated" &&
-//   dayjs().isBefore(
-//     dayjs(usage.created_at).add(selectedPayment.payment_term || 30, "day")
-//   ) && (
-//     <p style={{ color: "green" }}>
-//       This is the current bill. It will renew if payment is not received.
-//     </p>
-// )}
-
-//                 </div>
-//               ) : null;
-//             })}
-//           </div>
-//         )}
-//       </Modal>
-//     </div>
-//   );
-// };
-
-// export default Payments;
-
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Table,
   Button,
@@ -670,9 +13,8 @@ import {
 import dayjs from "dayjs";
 import { CheckCircleOutlined } from "@ant-design/icons";
 import axios from "axios";
-
-// Define utility types for easy iteration and labeling.
-// Note: For EEU we use key "electricity" but the tenant property to check is "eeu_payment".
+import minMax from 'dayjs/plugin/minMax';
+// Define utility types with their labels and corresponding tenant payment fields.
 const utilityTypes = [
   { key: "electricity", label: "EEU", paymentField: "eeu_payment" },
   { key: "water", label: "Water", paymentField: "water_payment" },
@@ -680,97 +22,95 @@ const utilityTypes = [
 ];
 
 const Payments = () => {
-  // State for tenants merged with their utility usage records (grouped by utility type).
   const [payments, setPayments] = useState([]);
   const [filteredPayments, setFilteredPayments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  dayjs.extend(minMax);
+  // Modal visibility states
+  const [isUtilityModalVisible, setIsUtilityModalVisible] = useState(false);
+  const [isProofModalVisible, setIsProofModalVisible] = useState(false);
+  const [isBillModalVisible, setIsBillModalVisible] = useState(false);
 
-  // Modal states.
-  const [isModalVisible, setIsModalVisible] = useState(false); // For entering meter readings (bill generation)
-  const [isProofModalVisible, setIsProofModalVisible] = useState(false); // For uploading payment proofs
-  const [isBillModalVisible, setIsBillModalVisible] = useState(false); // For admin viewing & approving proofs
-
-  // Selected tenant (merged record) and form hooks.
-  const [selectedPayment, setSelectedPayment] = useState(null);
+  // Selected tenant and form controls
+  const [selectedTenant, setSelectedTenant] = useState(null);
   const [form] = Form.useForm();
   const [proofForm] = Form.useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ---------------------------
-  // Fetch Data: First update overdue penalties, then get tenant and utility usage records.
-  // Group usage records by utility type.
+  // Fetch and merge tenants, utility usage, and room data.
+  // Also call penalty–update endpoint to ensure penalty values are current.
   // ---------------------------
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      // Update overdue penalties in the database.
-      await axios.put("http://localhost:5000/api/utilities/updatePenalties");
-
-      // Fetch tenants and usage records.
-      const [tenantsRes, usageRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/tenants"),
-        axios.get("http://localhost:5000/api/utilities/tenant_utility_usage"),
+      setLoading(true);
+      // Update overdue penalties before fetching data.
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/updatePenalties`);
+      const [tenantsRes, usageRes, roomsRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/tenant_utility_usage`),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/stalls/getRooms`),
       ]);
-
-      // For each tenant, group usage records by utility type.
+      const rooms = roomsRes.data.flat();
+      // Merge tenants with their latest utility usage (by bill_date)
       const mergedData = tenantsRes.data.map((tenant) => {
         const usages = usageRes.data.filter(
-          (u) => Number(u.tenant_id) === Number(tenant.id)
+          (u) => Number(u.tenant_id) === Number(tenant.tenant_id)
         );
-        // Group by utility type, selecting the record with the highest id.
         const utilityRecords = {};
         usages.forEach((u) => {
-          const key = u.utility_type; // "electricity", "water", or "generator"
-          if (!utilityRecords[key] || Number(u.id) > Number(utilityRecords[key].id)) {
+          const key = u.utility_type;
+          if (!utilityRecords[key] || dayjs(u.bill_date).isAfter(dayjs(utilityRecords[key].bill_date))) {
             utilityRecords[key] = u;
           }
         });
+        const room = rooms.find((r) => r.roomName === tenant.roomName);
         return {
           ...tenant,
-          utility_usage: utilityRecords, // e.g. { electricity: {…}, water: {…} }
+          room: room || {},
+          utility_usage: utilityRecords,
         };
       });
-
-      // Filter out terminated tenants.
-      const activeData = mergedData.filter((tenant) => !tenant.terminated);
+      const activeData = mergedData.filter((t) => !t.terminated);
       setPayments(activeData);
       setFilteredPayments(activeData);
+      console.log("Merged tenant data:", activeData);
     } catch (error) {
-      message.error("Failed to fetch tenants or usage data");
+      message.error("Failed to fetch data");
       console.error(error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
-
+  }, [fetchData]);
   useEffect(() => {
     setFilteredPayments(payments);
   }, [payments]);
 
   // ---------------------------
-  // Pre-populate previous reading fields when a tenant is selected.
+  // Pre-populate the Utility Modal's previous reading fields.
   // ---------------------------
   useEffect(() => {
-    if (selectedPayment && selectedPayment.utility_usage) {
+    if (selectedTenant && selectedTenant.utility_usage) {
       const fields = {};
       utilityTypes.forEach(({ key, paymentField }) => {
-        if (selectedPayment[paymentField]) {
-          if (selectedPayment.utility_usage[key]) {
-            fields[`${key}_previous`] = Number(
-              selectedPayment.utility_usage[key].current_reading
-            );
-          }
+        if (selectedTenant[paymentField] && selectedTenant.utility_usage[key]) {
+          fields[`${key}_previous`] = Number(selectedTenant.utility_usage[key].current_reading);
         }
       });
       form.setFieldsValue(fields);
     }
-  }, [selectedPayment, form]);
+  }, [selectedTenant, form]);
 
   // ---------------------------
-  // Handler: Mark a tenant's regular payment (e.g., rent) as paid.
+  // Mark tenant's regular payment as paid.
   // ---------------------------
   const handleMarkAsPaid = async (tenantId) => {
     try {
-      await axios.put(`http://localhost:5000/api/tenants/${tenantId}/pay`);
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/tenants/${tenantId}/pay`);
       message.success("Payment marked as Paid!");
       fetchData();
     } catch (error) {
@@ -780,194 +120,209 @@ const Payments = () => {
   };
 
   // ---------------------------
-  // Search Function.
+  // Search tenants by name or payment date.
   // ---------------------------
   const handleSearch = (filters) => {
     const filtered = payments.filter((payment) => {
-      const matchesTenant = filters.tenantName
-        ? payment.full_name.toLowerCase().includes(filters.tenantName.toLowerCase())
-        : true;
-      // Payment date filtering is not implemented.
-      return matchesTenant;
+      let matches = true;
+      if (filters.tenantName) {
+        matches = payment.full_name.toLowerCase().includes(filters.tenantName.toLowerCase());
+      }
+      if (filters.paymentDate) {
+        const paymentDate = dayjs(filters.paymentDate);
+        matches = matches && paymentDate.isSame(dayjs(payment.paymentDuty), "day");
+      }
+      return matches;
     });
     setFilteredPayments(filtered.length > 0 ? filtered : payments);
   };
 
   // ---------------------------
-  // Modal: Utility Usage Submission (Bill Generation).
+  // Utility Meter Reading Modal (Bill Generation)
   // ---------------------------
-  const showUtilityModal = (payment) => {
-    setSelectedPayment(payment);
+  const showUtilityModal = (tenant) => {
+    setSelectedTenant(tenant);
     form.resetFields();
-    setIsModalVisible(true);
+    setIsUtilityModalVisible(true);
   };
 
-  // Check each utility independently so that if a tenant is responsible for multiple utilities,
-  // all payloads will be processed.
   const handleUtilitySubmit = async () => {
-    if (!selectedPayment) {
-      return message.error("No tenant selected");
-    }
     try {
       const values = await form.validateFields();
+      if (!selectedTenant) throw new Error("No tenant selected");
       const payloads = [];
-
-      utilityTypes.forEach(({ key, label, paymentField }) => {
-        if (selectedPayment[paymentField]) {
-          if (values[`${key}_previous`] == null || values[`${key}_current`] == null) {
-            return message.error(`Enter both previous and current ${label} readings`);
-          }
+      utilityTypes.forEach(({ key, paymentField, label }) => {
+        if (selectedTenant[paymentField]) {
+          const currentVal = values[`${key}_current`];
+          if (currentVal === undefined) throw new Error(`Field ${key}_current is undefined`);
           payloads.push({
-            tenant_id: selectedPayment.id,
+            tenant_id: selectedTenant.tenant_id,
             utility_type: key,
-            previous_reading: values[`${key}_previous`],
-            current_reading: values[`${key}_current`],
+            current_reading: currentVal,
           });
         }
       });
-
-      // Submit each utility payload.
-      for (const payload of payloads) {
-        await axios.post("http://localhost:5000/api/utilities/usage", payload);
-      }
-
-      message.success(`Bill Generated for ${payloads.length} utility(ies)!`);
+      if (payloads.length === 0) throw new Error("No utility readings to submit.");
+      await Promise.all(
+        payloads.map((payload) =>
+          axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/usage`, payload)
+        )
+      );
+      message.success("Utility records created!");
       fetchData();
-      setIsModalVisible(false);
+      setIsUtilityModalVisible(false);
     } catch (error) {
-      message.error("Failed to record utility usage");
-      console.error(error);
+      console.error("Submission error:", error);
+      message.error("Failed to submit utility readings: " + error.message);
     }
   };
 
   // ---------------------------
-  // Modal: Payment Proof Upload (Tenant Side).
-  // Now allow separate proofs for each utility that is in "Bill Generated" state.
+  // Payment Proof Upload Modal (Tenant Side)
   // ---------------------------
-  const showProofModal = (payment) => {
-    setSelectedPayment(payment);
+  const showProofModal = (tenant) => {
+    setSelectedTenant(tenant);
     proofForm.resetFields();
     setIsProofModalVisible(true);
   };
 
   const handleProofSubmit = async () => {
+    setIsSubmitting(true);
     try {
       const values = await proofForm.validateFields();
-      // Iterate over each utility type and update its proof if applicable.
-      for (const { key, label, paymentField } of utilityTypes) {
-        if (selectedPayment[paymentField]) {
-          const usage = selectedPayment.utility_usage ? selectedPayment.utility_usage[key] : null;
+      const submissionPromises = [];
+      utilityTypes.forEach(({ key, paymentField, label }) => {
+        if (selectedTenant && selectedTenant[paymentField]) {
+          const usage = selectedTenant.utility_usage?.[key];
           if (
             usage &&
             usage.utility_status === "Bill Generated" &&
             values[`${key}_payment_proof_link`]
           ) {
-            const payload = {
-              tenant_id: selectedPayment.id,
-              usage_id: usage.id,
-              payment_proof_link: values[`${key}_payment_proof_link`],
-            };
-            await axios.post("http://localhost:5000/api/utilities/confirm", payload);
+            submissionPromises.push(
+              axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/confirm`, {
+                tenant_id: selectedTenant.tenant_id,
+                usage_id: usage.id,
+                payment_proof_link: values[`${key}_payment_proof_link`],
+              })
+            );
           }
         }
+      });
+      if (submissionPromises.length > 0) {
+        await Promise.all(submissionPromises);
       }
       message.success("Payment proofs submitted successfully. Await admin review.");
       fetchData();
       setIsProofModalVisible(false);
-    } catch (err) {
+    } catch (error) {
+      console.error("Error submitting payment proof:", error);
       message.error("Failed to submit payment proofs");
-      console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // ---------------------------
-  // Modal: View Bill & Approve Payment Proof (Admin Side).
-  // Display details for each utility type.
+  // View Bill / Approve Payment Proof Modal (Admin Side)
   // ---------------------------
-  const showBillModal = (payment) => {
-    setSelectedPayment(payment);
+  const showBillModal = (tenant) => {
+    setSelectedTenant(tenant);
     setIsBillModalVisible(true);
   };
 
   const handleApproveProof = async () => {
     try {
-      // Approve each utility record that is in "Submitted" state.
-      let approvedOne = false;
-      if (selectedPayment && selectedPayment.utility_usage) {
-        for (const usage of Object.values(selectedPayment.utility_usage)) {
+      const approvalPromises = [];
+      if (selectedTenant && selectedTenant.utility_usage) {
+        Object.values(selectedTenant.utility_usage).forEach((usage) => {
           if (usage.utility_status === "Submitted") {
-            const payload = { usage_id: usage.id };
-            await axios.post("http://localhost:5000/api/utilities/approve", payload);
-            approvedOne = true;
+            approvalPromises.push(
+              axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/utilities/approve`, {
+                usage_id: usage.id,
+              })
+            );
           }
-        }
+        });
       }
-      if (approvedOne) {
-        message.success("Selected payment proofs approved! Status updated to Approved.");
+      if (approvalPromises.length > 0) {
+        await Promise.all(approvalPromises);
+        message.success("Payment proofs approved successfully!");
       } else {
-        message.info("No submitted proof available for approval.");
+        message.info("No submitted proofs available for approval.");
       }
       fetchData();
       setIsBillModalVisible(false);
-    } catch (e) {
+    } catch (error) {
+      console.error("Error approving proof:", error);
       message.error("Failed to approve payment proof(s)");
-      console.error(e);
     }
   };
 
   // ---------------------------
-  // Renderers for combined utility data.
+  // Render functions for table columns.
   // ---------------------------
   const renderUtilitySection = (record) => {
-    // If no usage records exist, allow bill generation.
-    if (
-      !record.utility_usage ||
-      Object.keys(record.utility_usage).length === 0
-    ) {
+    const hasUsage = record.utility_usage && Object.keys(record.utility_usage).length > 0;
+    let dueSoon = false;
+    if (hasUsage) {
+      dueSoon = Object.values(record.utility_usage).some((usage) => {
+        // If the current bill's due_date is within 10 days, allow generating a new bill.
+        const dueDate = dayjs(usage.due_date);
+        return dueDate.diff(dayjs(), "day") <= 10;
+      });
+    }
+    if (hasUsage && !dueSoon) {
       return (
-        <Button
-          icon={<CheckCircleOutlined />}
-          onClick={() => showUtilityModal(record)}
-        >
+        <Button type="link" onClick={() => showBillModal(record)}>
+          View Bill
+        </Button>
+      );
+    } else {
+      return (
+        <Button icon={<CheckCircleOutlined />} onClick={() => showUtilityModal(record)}>
           Generate Bill
         </Button>
       );
     }
-    // Otherwise, show a button to view the bill.
-    return (
-      <Button type="link" onClick={() => showBillModal(record)}>
-        View Bill
-      </Button>
-    );
   };
 
-  const renderPenaltyCombined = (record) => {
+  // The Due Info column now shows:
+  // • If the bill is still "Bill Generated", the number of days left until due.
+  // • If overdue, it shows how many days overdue.
+  // • If the bill is "Approved", we show "Paid. Next bill in: X day(s)" based on tenant.rent_end_date.
+  const renderDueInfoCombined = (record) => {
     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
       return Object.entries(record.utility_usage)
         .map(([ut, usage]) => {
-          const label =
-            ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
-          return `${label}: birr${Number(usage.penalty || 0).toFixed(2)}`;
+          const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
+          if (usage.utility_status === "Bill Generated") {
+            const dueDate = dayjs(usage.due_date);
+            const diffDays = dueDate.diff(dayjs(), "day");
+            if (diffDays >= 0) {
+              return `${label}: ${diffDays} day(s) left until due (${dueDate.format("YYYY-MM-DD")})`;
+            } else {
+              return `${label}: Overdue by ${Math.abs(diffDays)} day(s)`;
+            }
+          } else if (usage.utility_status === "Approved") {
+            // Use tenant's rent_end_date to show when next bill is due.
+            const nextCycleDays = record.rent_end_date ? dayjs(record.rent_end_date).diff(dayjs(), "day") : 'N/A';
+            return `${label}: Paid. Next bill in ${nextCycleDays} day(s)`;
+          } else {
+            return `${label}: ${usage.utility_status}`;
+          }
         })
         .join(" | ");
     }
     return "-";
   };
 
-  const renderDueInfoCombined = (record) => {
+  const renderPenaltyCombined = (record) => {
     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
       return Object.entries(record.utility_usage)
         .map(([ut, usage]) => {
-          const label =
-            ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
-          const usageDate = dayjs(usage.created_at);
-          const dueDate = usageDate.add(30, "day");
-          const diffDays = dueDate.diff(dayjs(), "day");
-          if (diffDays >= 0) return `${label}: ${diffDays} day(s) left`;
-          else
-            return `${label}: Overdue. Total Due: birr${Number(usage.cost).toFixed(
-              2
-            )} (Penalty: birr${Number(usage.penalty).toFixed(2)})`;
+          const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
+          return `${label}: birr${Number(usage.penalty || 0).toFixed(2)}`;
         })
         .join(" | ");
     }
@@ -978,8 +333,7 @@ const Payments = () => {
     if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
       return Object.entries(record.utility_usage)
         .map(([ut, usage]) => {
-          const label =
-            ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
+          const label = ut === "electricity" ? "EEU" : ut === "water" ? "Water" : "Generator";
           return `${label}: ${usage.utility_status}`;
         })
         .join(" | ");
@@ -991,31 +345,27 @@ const Payments = () => {
     const actions = [];
     if (record.status === "Unpaid") {
       actions.push(
-        <Button type="link" onClick={() => handleMarkAsPaid(record.id)} key="pay">
+        <Button key="pay" type="link" onClick={() => handleMarkAsPaid(record.id)}>
           Pay
         </Button>
       );
     }
     if (
       record.utility_usage &&
-      Object.values(record.utility_usage).some(
-        (usage) => usage.utility_status === "Bill Generated"
-      )
+      Object.values(record.utility_usage).some((usage) => usage.utility_status === "Bill Generated")
     ) {
       actions.push(
-        <Button type="link" onClick={() => showProofModal(record)} key="upload">
+        <Button key="upload" type="link" onClick={() => showProofModal(record)}>
           Upload Payment Proof
         </Button>
       );
     }
     if (
       record.utility_usage &&
-      Object.values(record.utility_usage).some(
-        (usage) => usage.utility_status === "Submitted"
-      )
+      Object.values(record.utility_usage).some((usage) => usage.utility_status === "Submitted")
     ) {
       actions.push(
-        <Button type="link" onClick={() => showBillModal(record)} key="view-approve">
+        <Button key="view-approve" type="link" onClick={() => showBillModal(record)}>
           View & Approve Proof
         </Button>
       );
@@ -1024,44 +374,76 @@ const Payments = () => {
   };
 
   // ---------------------------
-  // Table Columns Definition.
+  // Table columns configuration.
   // ---------------------------
   const columns = [
-    { title: "Tenant Name", dataIndex: "full_name", key: "full_name" },
-    { title: "Room", dataIndex: "roomName", key: "room" },
-    { title: "Payment Term", dataIndex: "payment_term", key: "payment_term" },
+    { title: "Tenant Name", dataIndex: "full_name", key: "full_name", align: "center" },
+    {
+      title: "Room",
+      dataIndex: "room",
+      key: "room",
+      render: (room) => room.roomName || "-",
+      align: "center"
+    },
+    { title: "Payment Term", dataIndex: "payment_term", key: "payment_term", align: "center" },
     {
       title: "Payment Duty",
-      dataIndex: "paymentDuty",
       key: "paymentDuty",
-      render: (duty) => dayjs(duty).format("YYYY-MM-DD"),
+      render: (_, record) => {
+        // For tenants WITH existing utility bills
+        if (record.utility_usage && Object.keys(record.utility_usage).length > 0) {
+          const dueDates = Object.values(record.utility_usage)
+            .map(usage => dayjs(usage.due_date))
+            .filter(d => d.isValid());
+  
+          if (dueDates.length === 0) return "-";
+          const earliestDueDate = dayjs.min(dueDates);
+          return earliestDueDate.format("YYYY-MM-DD");
+        }
+        // For NEW tenants WITHOUT bills
+        if (record.rent_start_date) {
+          // First payment duty = rent_start_date + 30 days
+          const dutyDate = dayjs(record.rent_start_date).add(30, 'day');
+          return dutyDate.isValid() 
+            ? dutyDate.format("YYYY-MM-DD")
+            : "-";
+        }
+        return "-";
+      },
+      align: "center"
     },
-    { title: "Utility Section", key: "utilitySection", render: (_, record) => renderUtilitySection(record) },
-    // { title: "Amount", dataIndex: "amount", key: "amount" },
-    // { title: "Status", dataIndex: "status", key: "status" },
-    { title: "Utility Status", key: "utility_status", render: (_, record) => renderUtilityStatusCombined(record) },
+    {
+      title: "Utility Section",
+      key: "utilitySection",
+      render: (_, record) => renderUtilitySection(record),
+      align: "center"
+    },
+    {
+      title: "Utility Status",
+      key: "utility_status",
+      render: (_, record) => renderUtilityStatusCombined(record),
+      align: "center"
+    },
     {
       title: "Payment Proof",
       key: "payment_proof_link",
       render: (_, record) =>
         record.payment_proof_link ||
         (record.utility_usage &&
-         Object.values(record.utility_usage).some(u => u.payment_proof_link)) ? (
+          Object.values(record.utility_usage).some((u) => u.payment_proof_link)) ? (
           <Button type="link" onClick={() => showBillModal(record)}>
             View Proof
           </Button>
         ) : (
           "-"
         ),
+      align: "center"
     },
-    { title: "Penalty", key: "penalty", render: (_, record) => renderPenaltyCombined(record) },
-    { title: "Due Info", key: "dueInfo", render: (_, record) => renderDueInfoCombined(record) },
-    { title: "Actions", key: "actions", render: (_, record) => renderActionsCombined(record) },
+    { title: "Penalty", key: "penalty", render: (_, record) => renderPenaltyCombined(record), align: "center" },
+    { title: "Due Info", key: "dueInfo", render: (_, record) => renderDueInfoCombined(record), align: "center" },
+    { title: "Actions", key: "actions", render: (_, record) => renderActionsCombined(record), align: "center" },
   ];
 
-  // ---------------------------
-  // Render the Component.
-  // ---------------------------
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
@@ -1078,37 +460,55 @@ const Payments = () => {
         columns={columns}
         dataSource={filteredPayments.length > 0 ? filteredPayments : payments}
         rowKey="id"
+        loading={loading}
       />
 
-      {/* Utility Usage Modal for Bill Generation */}
+      {/* Utility Meter Reading Modal */}
       <Modal
         title="Enter Utility Meter Readings"
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
+        visible={isUtilityModalVisible}
+        onCancel={() => setIsUtilityModalVisible(false)}
         onOk={handleUtilitySubmit}
       >
         <Form form={form} layout="vertical">
           {utilityTypes.map(({ key, label, paymentField }) => {
-            if (selectedPayment && selectedPayment[paymentField]) {
+            if (selectedTenant && selectedTenant[paymentField]) {
+              const previousReading =
+                selectedTenant.utility_usage?.[key]?.current_reading ||
+                selectedTenant[`initial_${key}`] ||
+                0;
               return (
                 <React.Fragment key={key}>
-                  <Form.Item
-                    label={`${label} Previous Reading`}
-                    name={`${key}_previous`}
-                    rules={[
-                      { required: true, message: `Enter previous ${label} reading` },
-                    ]}
-                  >
-                    <InputNumber min={0} style={{ width: "100%" }} />
+                  <Form.Item label={`${label} Previous Reading`}>
+                    <InputNumber
+                      value={previousReading}
+                      disabled
+                      style={{ width: "100%", background: "#f5f5f5" }}
+                    />
                   </Form.Item>
                   <Form.Item
                     label={`${label} Current Reading`}
                     name={`${key}_current`}
                     rules={[
-                      { required: true, message: `Enter current ${label} reading` },
+                      {
+                        required: true,
+                        message: `Current reading must be ≥ ${previousReading}`,
+                      },
+                      () => ({
+                        validator(_, value) {
+                          if (value >= previousReading) {
+                            return Promise.resolve();
+                          }
+                          return Promise.reject(new Error(`Must be ≥ previous reading (${previousReading})`));
+                        },
+                      }),
                     ]}
                   >
-                    <InputNumber min={0} style={{ width: "100%" }} />
+                    <InputNumber
+                      min={previousReading}
+                      style={{ width: "100%" }}
+                      placeholder={`Enter current ${label} reading`}
+                    />
                   </Form.Item>
                 </React.Fragment>
               );
@@ -1118,33 +518,48 @@ const Payments = () => {
         </Form>
       </Modal>
 
-      {/* Payment Proof Upload Modal (Tenant Side) */}
+      {/* Payment Proof Upload Modal */}
       <Modal
         title="Upload Payment Proof"
         visible={isProofModalVisible}
         onCancel={() => setIsProofModalVisible(false)}
         onOk={handleProofSubmit}
+        confirmLoading={isSubmitting}
       >
         <Form form={proofForm} layout="vertical">
           {utilityTypes.map(({ key, label, paymentField }) => {
-            if (
-              selectedPayment &&
-              selectedPayment[paymentField] &&
-              selectedPayment.utility_usage &&
-              selectedPayment.utility_usage[key] &&
-              selectedPayment.utility_usage[key].utility_status === "Bill Generated"
-            ) {
+            if (selectedTenant && selectedTenant[paymentField]) {
+              const previousUsage = selectedTenant.utility_usage?.[key];
+              const previousReading =
+                previousUsage?.current_reading ||
+                selectedTenant[`initial_${key}`] ||
+                0;
               return (
-                <Form.Item
-                  key={key}
-                  label={`${label} Payment Proof`}
-                  name={`${key}_payment_proof_link`}
-                  rules={[
-                    { required: true, message: `Enter the ${label} Payment Proof URL` },
-                  ]}
-                >
-                  <Input placeholder={`Enter URL for ${label} Payment Proof`} />
-                </Form.Item>
+                <React.Fragment key={key}>
+                  <Form.Item label={`${label} Previous Reading`}>
+                    <InputNumber
+                      value={previousReading}
+                      disabled
+                      style={{ width: "100%", background: "#f5f5f5" }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    label={`${label} Payment Proof Link`}
+                    name={`${key}_payment_proof_link`}
+                    rules={[
+                      {
+                        required: true,
+                        message: `Please provide the payment proof link for ${label}`,
+                      },
+                      {
+                        type: "url",
+                        message: "Please enter a valid URL",
+                      },
+                    ]}
+                  >
+                    <Input placeholder={`Enter ${label} payment proof link`} />
+                  </Form.Item>
+                </React.Fragment>
               );
             }
             return null;
@@ -1152,7 +567,7 @@ const Payments = () => {
         </Form>
       </Modal>
 
-      {/* View Bill / Approve Payment Proof Modal (Admin Side) */}
+      {/* View Bill / Approve Payment Proof Modal */}
       <Modal
         title="View Bill"
         visible={isBillModalVisible}
@@ -1161,9 +576,9 @@ const Payments = () => {
           <Button key="close" onClick={() => setIsBillModalVisible(false)}>
             Close
           </Button>,
-          selectedPayment &&
-            selectedPayment.utility_usage &&
-            Object.values(selectedPayment.utility_usage).some(
+          selectedTenant &&
+            selectedTenant.utility_usage &&
+            Object.values(selectedTenant.utility_usage).some(
               (usage) => usage.utility_status === "Submitted"
             ) && (
               <Button key="approve" type="primary" onClick={handleApproveProof}>
@@ -1172,13 +587,10 @@ const Payments = () => {
             ),
         ]}
       >
-        {selectedPayment && (
+        {selectedTenant && (
           <div>
             {utilityTypes.map(({ key, label }) => {
-              const usage =
-                selectedPayment.utility_usage && selectedPayment.utility_usage[key]
-                  ? selectedPayment.utility_usage[key]
-                  : null;
+              const usage = selectedTenant.utility_usage?.[key] || null;
               return usage ? (
                 <div
                   key={key}
@@ -1194,6 +606,12 @@ const Payments = () => {
                   <p>
                     <strong>Cost:</strong> birr{usage.cost || "N/A"}&nbsp;&nbsp;
                     <strong>Penalty:</strong> birr{Number(usage.penalty || 0).toFixed(2)}
+                  </p>
+                  <p>
+                    <strong>Bill Date:</strong> {dayjs(usage.bill_date).format("YYYY-MM-DD")}
+                  </p>
+                  <p>
+                    <strong>Due Date:</strong> {dayjs(usage.due_date).format("YYYY-MM-DD")}
                   </p>
                   <p>
                     <strong>Status:</strong> {usage.utility_status}
