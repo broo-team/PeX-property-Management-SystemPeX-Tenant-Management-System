@@ -517,7 +517,7 @@ useEffect(() => {
         }
 
         return Promise.reject(
-          new Error("Please enter a phone number starting with 09, 07, or farai.")
+          new Error("Please enter a phone number starting with 09 or 07")
         );
       },
     },
