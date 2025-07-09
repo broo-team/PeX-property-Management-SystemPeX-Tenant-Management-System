@@ -1028,7 +1028,7 @@ const Payments = () => {
   // ---------------------------
   const columns = [
     { title: "Tenant Name", dataIndex: "full_name", key: "full_name" },
-    { title: "Room", dataIndex: "room", key: "room" },
+    { title: "Room", dataIndex: "roomName", key: "room" },
     { title: "Payment Term", dataIndex: "payment_term", key: "payment_term" },
     {
       title: "Payment Duty",
@@ -1037,8 +1037,8 @@ const Payments = () => {
       render: (duty) => dayjs(duty).format("YYYY-MM-DD"),
     },
     { title: "Utility Section", key: "utilitySection", render: (_, record) => renderUtilitySection(record) },
-    { title: "Amount", dataIndex: "amount", key: "amount" },
-    { title: "Status", dataIndex: "status", key: "status" },
+    // { title: "Amount", dataIndex: "amount", key: "amount" },
+    // { title: "Status", dataIndex: "status", key: "status" },
     { title: "Utility Status", key: "utility_status", render: (_, record) => renderUtilityStatusCombined(record) },
     {
       title: "Payment Proof",

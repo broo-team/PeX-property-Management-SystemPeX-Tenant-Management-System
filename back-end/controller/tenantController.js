@@ -25,6 +25,7 @@ exports.createTenant = async (req, res) => {
     eeuPayment,
     generatorPayment,
     waterPayment,
+    organization,
     registeredByAgent,
     authenticationNo,
     agentFirstName,
@@ -70,12 +71,15 @@ exports.createTenant = async (req, res) => {
     if (rooms[0].status && rooms[0].status.toLowerCase() === "taken") {
       return res.status(400).json({ error: "Room is already occupied." });
     }
-
+    const orgName =
+      organization && organization.trim() !== ""
+        ? organization
+        : `${fullName} Organization`;
     // 2. Insert the tenant record into the tenants table.
     const tenantInsertQuery = `
       INSERT INTO tenants 
-        (tenant_id, full_name, sex, phone, city, subcity, woreda, house_no, room, price, payment_term, deposit, lease_start, lease_end, registered_by_agent, authentication_no, agent_first_name, agent_sex, agent_phone, agent_city, agent_subcity, agent_woreda, agent_house_no, rent_start_date, rent_end_date, eeu_payment, generator_payment, water_payment, building_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (tenant_id, full_name, sex, phone, city, subcity, woreda, house_no, room, price, payment_term, deposit, lease_start, lease_end, organization, registered_by_agent, authentication_no, agent_first_name, agent_sex, agent_phone, agent_city, agent_subcity, agent_woreda, agent_house_no, rent_start_date, rent_end_date, eeu_payment, generator_payment, water_payment, building_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
     const tenantValues = [
       tenantID,
@@ -92,6 +96,7 @@ exports.createTenant = async (req, res) => {
       deposit,
       lease_start,
       lease_end,
+      orgName,
       registeredByAgent || false,
       authenticationNo || null,
       agentFirstName || null,

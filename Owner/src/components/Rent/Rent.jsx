@@ -1,3 +1,4 @@
+// Rent.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import moment from "moment";
 import {
@@ -22,25 +23,23 @@ import RentInfo from "./RentInfo";
 const API_BASE = "http://localhost:5000/api";
 // Renewal threshold (in days) for auto‑generation.
 const AUTO_RENEW_THRESHOLD = 10;
-// Define a constant date format (with full time components).
+// Define a constant date format.
 const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss";
 
-// Utility: Format currency values.
+// Utility: Format currency.
 const formatCurrency = (value) => `${parseFloat(value).toFixed(2)} Birr`;
 
-// Helper: Returns true if a status indicates the bill is paid or approved.
+// Utility: Check if a status is "paid" or "approved".
 const isPaidOrApproved = (status) => {
   const lowerStatus = status.toLowerCase();
   return lowerStatus === "paid" || lowerStatus === "approved";
 };
 
 /*
-  Build Generate Bill Payload
-
-  • If the record already has a due date we reuse it,
-    so that if a bill is generated mid‑term the due date remains accurate.
-  • For fixed tenants (initialRegistration true), we calculate using the tenant’s original_due_date.
-  • Otherwise, for non‑fixed or new tenants we default to now() + paymentTerm days.
+  Build Generate Bill Payload:
+  • Reuses an existing due date if available.
+  • For new tenants (or fixed tenants) calculates based on the tenant’s original_due_date.
+  • Otherwise defaults to now() + paymentTerm days.
 */
 const buildGenerateBillPayload = (record) => {
   const termDays = record.paymentTerm || 30;
@@ -88,7 +87,7 @@ const buildGenerateBillPayload = (record) => {
 
 const Rent = () => {
   const [data, setData] = useState([]);
-  const [tick, setTick] = useState(0); // used for live updates (e.g. countdowns)
+  const [tick, setTick] = useState(0); // Live countdown updates.
   const [modalImage, setModalImage] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -97,7 +96,7 @@ const Rent = () => {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState(null);
 
-  // Tick every second to update countdown displays.
+  // Update tick every second.
   useEffect(() => {
     const interval = setInterval(() => setTick((prev) => prev + 1), 1000);
     return () => clearInterval(interval);
@@ -113,13 +112,10 @@ const Rent = () => {
       const tenants = tenantRes.data;
       const bills = billRes.data;
 
-      // Process tenants.
-      // NOTE: We include all active tenants but in the UI cell we mark tenants whose lease hasn't started.
-      const activeTenants = tenants.filter((tenant) => {
-        // Check for terminated tenants.
-        const notTerminated = Number(tenant.terminated) === 0;
-        return notTerminated;
-      });
+      // Exclude terminated tenants.
+      const activeTenants = tenants.filter(
+        (tenant) => Number(tenant.terminated) === 0
+      );
 
       const mergedData = activeTenants.map((tenant) => {
         const termRaw = Number(tenant.payment_term) || 30;
@@ -132,17 +128,16 @@ const Rent = () => {
           termDays = termRaw * 30;
         }
         const monthlyRent = parseFloat(tenant.monthlyRent) || 0;
-        const rentStart = tenant.rent_start_date; // use the API field
+        const rentStart = tenant.rent_start_date;
         const rentEnd = tenant.rent_end_date;
 
-        // Look for an existing bill for the tenant.
+        // Find an existing bill for this tenant.
         const tenantBill = bills.find(
           (b) => Number(b.tenant_id) === Number(tenant.id)
         );
 
         if (tenantBill) {
           const dueDateMoment = moment(tenantBill.due_date, DATE_FORMAT);
-          // Use the later date between now() and rent_start_date as the reference for calculation.
           const referenceDate =
             rentStart && moment(rentStart).isAfter(moment())
               ? moment(rentStart)
@@ -174,22 +169,20 @@ const Rent = () => {
             billAutoTriggered: false,
             nextDueDate: dueDateMoment.format(DATE_FORMAT),
             daysLeft,
-            initialRegistration: Boolean(rentEnd),
-            original_due_date: rentEnd
-              ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
+            // For new tenant registration use created_at logic on the backend.
+            initialRegistration: false,
+            original_due_date: tenant.rent_end_date
+              ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
               : null,
             rent_start_date: rentStart,
             rent_end_date: rentEnd,
           };
         } else {
-          // For new tenants.
-          // Use tenant.rent_end_date if provided and in the future;
-          // otherwise, default to now() + termDays.
+          // New tenant case.
           const tenantDueDate =
             rentEnd && moment(rentEnd).isAfter(moment())
               ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
               : moment().add(termDays, "days").endOf("day").format(DATE_FORMAT);
-          // Calculate daysLeft based on lease start if it hasn't begun.
           const daysLeft =
             rentStart && moment(rentStart).isAfter(moment())
               ? moment(tenantDueDate, DATE_FORMAT)
@@ -215,9 +208,11 @@ const Rent = () => {
             billAutoTriggered: false,
             nextDueDate: tenantDueDate,
             daysLeft,
-            initialRegistration: Boolean(rentEnd),
-            original_due_date: rentEnd
-              ? moment(rentEnd).endOf("day").format(DATE_FORMAT)
+            // For demonstration, we assume new tenants are determined by another logic.
+            // The termination logic on the backend uses t.created_at to decide.
+            initialRegistration: true,
+            original_due_date: tenant.rent_end_date
+              ? moment(tenant.rent_end_date).endOf("day").format(DATE_FORMAT)
               : null,
             rent_start_date: rentStart,
             rent_end_date: rentEnd,
@@ -249,9 +244,8 @@ const Rent = () => {
     return () => clearInterval(intervalId);
   }, [fetchData]);
 
-  // Generate a new bill.
+  // Auto‑generate bills.
   const generateBill = useCallback(async (record) => {
-    // Only generate a bill if the lease has started.
     if (record.rent_start_date && moment(record.rent_start_date).isAfter(moment())) {
       message.info("Lease has not started. Bill generation is disabled.");
       return;
@@ -286,9 +280,7 @@ const Rent = () => {
         )
       );
       message.success(
-        `Bill generated! ${
-          newDaysLeft >= 0 ? newDaysLeft + " days left" : "Overdue"
-        }`
+        `Bill generated! ${newDaysLeft >= 0 ? newDaysLeft + " days left" : "Overdue"}`
       );
     } catch (error) {
       console.error("Error generating bill:", error);
@@ -296,10 +288,9 @@ const Rent = () => {
     }
   }, []);
 
-  // Auto‑generate bills for records in need of renewal.
+  // Auto‑generate bills if needed.
   const autoGenerateBills = useCallback(() => {
     data.forEach((record) => {
-      // Only auto‑generate if the bill isn’t generated/triggered and the lease has started.
       if (
         !record.billGenerated &&
         !record.billAutoTriggered &&
@@ -388,7 +379,6 @@ const Rent = () => {
 
   // Render cell for "Generate Bill".
   const renderGenerateBillCell = (record) => {
-    // If the lease hasn't started yet, show a "Lease Not Started" tag.
     if (record.rent_start_date && moment(record.rent_start_date).isAfter(moment())) {
       return <Tag color="grey">Lease Not Started</Tag>;
     }
@@ -412,7 +402,7 @@ const Rent = () => {
     );
   };
 
-  // Define the table columns.
+  // Define table columns.
   const columns = useMemo(
     () => [
       { title: "Tenant Name", dataIndex: "name", key: "name" },
@@ -444,11 +434,8 @@ const Rent = () => {
         render: (status) => {
           const lowerStatus = status.toLowerCase();
           const color =
-            isPaidOrApproved(status)
-              ? "green"
-              : lowerStatus === "pending"
-              ? "blue"
-              : "red";
+            isPaidOrApproved(status) ? "green" :
+            lowerStatus === "pending" ? "blue" : "red";
           return <Tag color={color}>{status.toUpperCase()}</Tag>;
         },
       },
@@ -544,30 +531,6 @@ const Rent = () => {
         size="middle"
       />
 
-      {/* Modal for Viewing Payment Proof */}
-      <Modal
-        visible={modalVisible}
-        footer={[
-          <Button key="cancel" onClick={() => setModalVisible(false)}>
-            Close
-          </Button>,
-          selectedRecord &&
-            selectedRecord.status.toLowerCase() === "submitted" && (
-              <Button
-                key="approve"
-                type="primary"
-                icon={<CheckCircleOutlined />}
-                onClick={() => handleApprove(selectedRecord)}
-              >
-                Approve Payment
-              </Button>
-            ),
-        ]}
-        onCancel={() => setModalVisible(false)}
-      >
-        <img src={modalImage} alt="Proof" style={{ width: "100%" }} />
-      </Modal>
-
       {/* Modal for Submitting Payment Proof */}
       <Modal
         visible={proofModalVisible}
@@ -596,6 +559,30 @@ const Rent = () => {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Modal for Viewing Payment Proof */}
+      <Modal
+        visible={modalVisible}
+        footer={[
+          <Button key="cancel" onClick={() => setModalVisible(false)}>
+            Close
+          </Button>,
+          selectedRecord &&
+            selectedRecord.status.toLowerCase() === "submitted" && (
+              <Button
+                key="approve"
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleApprove(selectedRecord)}
+              >
+                Approve Payment
+              </Button>
+            ),
+        ]}
+        onCancel={() => setModalVisible(false)}
+      >
+        <img src={modalImage} alt="Proof" style={{ width: "100%" }} />
       </Modal>
 
       {/* Modal for Rent Payment Details */}

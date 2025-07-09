@@ -2,6 +2,8 @@
 const db = require("../db/connection");
 const moment = require("moment");
 
+const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss";
+
 // Get all rent bills.
 exports.getBills = async (req, res) => {
   try {
@@ -42,7 +44,7 @@ exports.generateBill = async (req, res) => {
       finalDueDate = moment(bill_date)
         .add(tenantPaymentTerm, "days")
         .endOf("day")
-        .format("YYYY-MM-DD HH:mm:ss");
+        .format(DATE_FORMAT);
       finalOriginalDueDate = finalDueDate;
     }
 
@@ -113,6 +115,7 @@ exports.submitPaymentProof = async (req, res) => {
     res.status(500).json({ message: "Server error while submitting payment proof." });
   }
 };
+
 // Approve a payment with early payment adjustment.
 exports.approvePayment = async (req, res) => {
   try {
@@ -129,14 +132,14 @@ exports.approvePayment = async (req, res) => {
 
     const { due_date, payment_term } = billRows[0];
     const now = moment();
-    const dueDateMoment = moment(due_date, "YYYY-MM-DD HH:mm:ss");
+    const dueDateMoment = moment(due_date, DATE_FORMAT);
 
     let newCycle;
     if (now.isBefore(dueDateMoment)) {
-      // Early payment: simply use the standard payment term.
+      // Early Payment: use the standard payment term.
       newCycle = payment_term;
     } else {
-      // On-time or late payment: subtract overdue days.
+      // On-time or late: subtract overdue days.
       const overdueDays = now.diff(dueDateMoment, "days");
       newCycle = payment_term - overdueDays;
       if (newCycle < 0) newCycle = 0;
@@ -148,9 +151,9 @@ exports.approvePayment = async (req, res) => {
       .clone()
       .add(newCycle, "days")
       .endOf("day")
-      .format("YYYY-MM-DD HH:mm:ss");
+      .format(DATE_FORMAT);
 
-    // Update the bill: mark the payment as paid and update cycle dates.
+    // Update the bill: mark as paid and update cycle dates.
     const [result] = await db.query(
       `UPDATE monthly_rent_bills 
          SET payment_status = 'paid', 
@@ -179,11 +182,7 @@ exports.approvePayment = async (req, res) => {
   }
 };
 
-// Update overdue bills with continuous penalty accrual and new month's rent.
 // Update overdue bills with capped penalty accumulation.
-// Once a new month begins (i.e. days overdue > payment_term),
-// the penalty is capped to the penalty for a single term,
-// while the new month's rent is added for each full cycle overdue.
 exports.updateOverdueBills = async (req, res) => {
   try {
     const [bills] = await db.query(
@@ -200,22 +199,13 @@ exports.updateOverdueBills = async (req, res) => {
     const currentDate = moment.utc().startOf("day");
 
     for (const bill of bills) {
-      // Use the stored due_date as the base for accrual.
       const baseDueDate = moment.utc(bill.due_date).startOf("day");
       if (currentDate.isAfter(baseDueDate)) {
         const daysOverdue = currentDate.diff(baseDueDate, "days");
         const dailyPenaltyRate = 0.01;
-
-        // Cap the overdue days used for penalty calculation to one payment term.
         const effectiveOverdueDays = Math.min(daysOverdue, bill.payment_term);
         const newPenalty = parseFloat(bill.amount) * dailyPenaltyRate * effectiveOverdueDays;
-
-        // Calculate how many full cycles (months) have passed.
         const monthsOverdue = Math.floor(daysOverdue / bill.payment_term);
-
-        // The new total due is computed as:
-        //   (Original monthly rent * (1 + the number of full cycles overdue))
-        //   plus the capped penalty.
         const newTotalDue = parseFloat(bill.amount) * (1 + monthsOverdue) + newPenalty;
 
         updates.push(
@@ -225,7 +215,6 @@ exports.updateOverdueBills = async (req, res) => {
           )
         );
       } else {
-        // Not overdue — reset penalty.
         updates.push(
           db.query(
             `UPDATE monthly_rent_bills SET penalty = ?, totalDue = amount WHERE id = ?`,
@@ -252,9 +241,7 @@ exports.updateOverdueBills = async (req, res) => {
 exports.getBillById = async (req, res) => {
   try {
     const billId = req.params.id;
-    const [rows] = await db.query("SELECT * FROM monthly_rent_bills WHERE id = ?", [
-      billId,
-    ]);
+    const [rows] = await db.query("SELECT * FROM monthly_rent_bills WHERE id = ?", [billId]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "Bill not found." });
     }
@@ -266,6 +253,46 @@ exports.getBillById = async (req, res) => {
       .json({ message: "Server error while fetching bill details." });
   }
 };
+
+// Terminate new tenants who have not paid within three days.
+// Here we assume that the first (and automatically generated) bill's date matches the tenant's registration date.
+// If the bill remains pending for 3 or more days, we terminate the tenant.
+// Terminate new tenants who have not paid within three days.
+// Here we assume that the first (and automatically generated) bill's date matches the tenant's registration date.
+// If the bill remains pending for 3 or more days, we terminate the tenant.
+exports.terminateNewTenants = async (req, res) => {
+  try {
+    const [results] = await db.query(
+      `SELECT t.id as tenantId
+       FROM monthly_rent_bills b
+       JOIN tenants t ON b.tenant_id = t.id
+       WHERE DATE(b.bill_date) = DATE(t.created_at)
+         AND b.payment_status = 'pending'
+         AND TIMESTAMPDIFF(DAY, b.bill_date, NOW()) >= 3`
+    );
+    
+    // Extract tenant IDs from the results.
+    const tenantIds = results.map(row => row.tenantId);
+    
+    if (tenantIds.length) {
+      // Use backticks around terminated.
+      await db.query(
+        "UPDATE tenants SET `terminated` = 1 WHERE id IN (?)",
+        [tenantIds]
+      );
+    }
+    
+    res.json({
+      message: "Processed new tenant terminations.",
+      terminated: tenantIds
+    });
+  } catch (error) {
+    console.error("Error terminating new tenants:", error);
+    res.status(500).json({ message: "Server error during tenant termination." });
+  }
+};
+
+
 // =======
 // // controllers/rentController.js
 // const db = require("../db/connection");

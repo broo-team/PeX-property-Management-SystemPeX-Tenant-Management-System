@@ -266,6 +266,7 @@ useEffect(() => {
 
         const payload = {
             tenantID: values.tenant_id ?? "",
+            organization:values.organization ?? "",
             fullName: values.full_name ?? "",
             sex: values.sex ?? "",
             phone: values.phone ?? "",
@@ -490,7 +491,7 @@ useEffect(() => {
                 <Form.Item name="tenant_id" label="Tenant ID" rules={[{ required: true, message: "Please enter Tenant ID" }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item name="organazation" label="Organazation">
+                <Form.Item name="organization" label="Organization">
                   <Input />
                 </Form.Item>
                 <Form.Item name="full_name" label="Full Name" rules={[{ required: true, message: "Please enter Full Name" }]}>
