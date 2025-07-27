@@ -222,7 +222,6 @@ const RentInfo = (props) => {
                 </div>
               </Col>
             </Row>
-
             {billDetails.payment_proof_url && (
               <>
                 <Divider />
