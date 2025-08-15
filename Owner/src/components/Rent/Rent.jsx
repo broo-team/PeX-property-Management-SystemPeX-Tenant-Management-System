@@ -1,3 +1,4 @@
+// Rent.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import moment from "moment";
 import {
@@ -13,22 +14,59 @@ import {
 import {
   FileDoneOutlined,
   CheckCircleOutlined,
-  PlusCircleOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import RentInfo from "./RentInfo";
 
-// Use environment variable if defined or default to localhost.
-const API_BASE = "http://localhost:5000/api";
+// Use an environment variable if defined or fallback to localhost.
+const API_BASE ="http://localhost:5000/api";
 
-// Constants for thresholds and rates.
-const OVERDUE_THRESHOLD = 60; // days before penalty applies
-const AUTO_RENEW_THRESHOLD = 10; // days remaining to trigger auto-generation
-const PENALTY_RATE = 0.01;
+// Auto-renewal threshold in days.
+const AUTO_RENEW_THRESHOLD = 10;
+
+// Utility: Format currency.
+const formatCurrency = (value) => `${parseFloat(value).toFixed(2)} Birr`;
+
+// Helper: Check if the bill status means it is paid/approved.
+const isPaidOrApproved = (status) => {
+  const lowerStatus = status.toLowerCase();
+  return lowerStatus === "paid" || lowerStatus === "approved";
+};
+
+/*
+  Updated Build Generate Bill Payload:
+  If the record already has a due date and that date is still in the future,
+  we re-use it (so that the "days left" remain as a reminder of the current cycle).
+  Otherwise, if the due date has passed, we extend the previous due date by the payment term.
+*/
+const buildGenerateBillPayload = (record) => {
+  const termDays = parseInt(record.term, 10);
+  const now = moment();
+  let due_date;
+
+  if (record.dueDate && now.isBefore(moment(record.dueDate))) {
+    // The current bill's due date is still in the future: do not reset.
+    due_date = record.dueDate;
+  } else if (record.dueDate) {
+    // The previous due date has passed; extend it by the term length.
+    due_date = moment(record.dueDate).add(termDays, "days").format("YYYY-MM-DD");
+  } else {
+    // Fallback: set due date as now + termDays.
+    due_date = now.add(termDays, "days").format("YYYY-MM-DD");
+  }
+
+  return {
+    tenant_id: record.key,
+    bill_date: now.format("YYYY-MM-DD"),
+    due_date,
+    amount: record.rentAmount,
+  };
+};
 
 const Rent = () => {
   const [data, setData] = useState([]);
+  const [tick, setTick] = useState(0); // For re-rendering dynamic fields.
   const [modalImage, setModalImage] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -37,26 +75,19 @@ const Rent = () => {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState(null);
 
-  // This state, updated every second, forces a re-render so that the "days left"
-  // display remains current without new API calls.
-  const [tick, setTick] = useState(0);
+  // Tick update for live re-rendering (e.g. days left calculations).
   useEffect(() => {
-    const tickInterval = setInterval(() => {
-      setTick((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(tickInterval);
+    const interval = setInterval(() => setTick((prev) => prev + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  // ------------------------------------------------------------------
-  // Fetch tenants and bills concurrently, then merge the data.
-  // ------------------------------------------------------------------
-  const fetchData = async () => {
+  // Fetch tenants and bills concurrently, then merge data.
+  const fetchData = useCallback(async () => {
     try {
       const [tenantRes, billRes] = await Promise.all([
         axios.get(`${API_BASE}/tenants`),
         axios.get(`${API_BASE}/rent`),
       ]);
-
       const tenants = tenantRes.data;
       const bills = billRes.data;
 
@@ -64,34 +95,47 @@ const Rent = () => {
         const termDays = Number(tenant.payment_term) || 30;
         const baseAmount =
           termDays === 60 ? 1000 : parseFloat(tenant.monthlyRent) || 0;
-
-        // Look for an existing bill for the tenant.
-        const bill = bills.find(
+        // Get the most recent bill for this tenant, if any.
+        const tenantBill = bills.find(
           (b) => Number(b.tenant_id) === Number(tenant.id)
         );
 
-        if (bill) {
+        if (tenantBill) {
+          const cycleStart = tenantBill.bill_date
+            ? moment(tenantBill.bill_date)
+            : moment(tenantBill.due_date);
+          const nextDueDateMoment = cycleStart.clone().add(termDays, "days");
+          const daysLeft = nextDueDateMoment.diff(moment(), "days");
+
+          // If the last bill is paid/approved and the new cycle is nearing its due date,
+          // mark billGenerated as false so that auto-generation can trigger (as a reminder).
+          const readyForRenewal =
+            isPaidOrApproved(tenantBill.payment_status) &&
+            daysLeft <= AUTO_RENEW_THRESHOLD;
+
           return {
             key: tenant.id.toString(),
-            billId: bill.id, // ID of the generated bill
+            billId: tenantBill.id,
             name: tenant.full_name,
             room: tenant.room,
             term: `${termDays} days`,
-            dueDate: bill.due_date || tenant.rent_end_date.split("T")[0],
-            billDate: bill.bill_date || null,
+            dueDate: tenantBill.due_date,
+            billDate: tenantBill.bill_date,
             rentAmount: baseAmount,
-            penalty: parseFloat(bill.penalty) || 0,
-            totalDue: parseFloat(bill.amount) + (parseFloat(bill.penalty) || 0),
-            status: bill.payment_status, // e.g., "pending", "submitted", "approved", "paid"
-            proof: bill.payment_proof_url || "",
-            approved:
-              bill.payment_status &&
-              (bill.payment_status.toLowerCase() === "approved" ||
-                bill.payment_status.toLowerCase() === "paid"),
-            billGenerated: true,
-            billAutoTriggered: false, // flag for auto-generation
+            penalty: parseFloat(tenantBill.penalty) || 0,
+            totalDue:
+              parseFloat(tenantBill.amount) +
+              (parseFloat(tenantBill.penalty) || 0),
+            status: tenantBill.payment_status,
+            proof: tenantBill.payment_proof_url || "",
+            approved: isPaidOrApproved(tenantBill.payment_status),
+            billGenerated: !readyForRenewal, // if ready for renewal then mark as not generated
+            billAutoTriggered: false,
+            nextDueDate: nextDueDateMoment.format("YYYY-MM-DD"),
+            daysLeft,
           };
         } else {
+          // No bill exists at all.
           return {
             key: tenant.id.toString(),
             billId: null,
@@ -108,6 +152,8 @@ const Rent = () => {
             approved: false,
             billGenerated: false,
             billAutoTriggered: false,
+            nextDueDate: null,
+            daysLeft: null,
           };
         }
       });
@@ -117,15 +163,13 @@ const Rent = () => {
       console.error("Error fetching merged data:", error);
       message.error("Failed to fetch tenant and bill data.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  // ------------------------------------------------------------------
-  // Auto-update overdue bills every minute.
-  // ------------------------------------------------------------------
+  // Periodically update overdue bills.
   useEffect(() => {
     const updateOverdueBills = async () => {
       try {
@@ -138,113 +182,11 @@ const Rent = () => {
 
     const intervalId = setInterval(updateOverdueBills, 60000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [fetchData]);
 
-  // ------------------------------------------------------------------
-  // Auto-renew / Auto-generate bill effect.
-  // ------------------------------------------------------------------
-  useEffect(() => {
-    const autoGenerateBill = () => {
-      data.forEach((record) => {
-        // Skip if already auto-triggered or if bill has been generated.
-        if (record.billAutoTriggered || record.billGenerated) return;
-
-        const lowerStatus = record.status.toLowerCase();
-
-        if (lowerStatus === "paid" || lowerStatus === "approved") {
-          const termDays = parseInt(record.term, 10);
-          const cycleStart = record.billDate
-            ? moment(record.billDate)
-            : moment(record.dueDate);
-          const nextDueDate = cycleStart.clone().add(termDays, "days");
-          const daysLeft = nextDueDate.diff(moment(), "days");
-
-          if (daysLeft <= AUTO_RENEW_THRESHOLD) {
-            // Mark as auto-triggered and generate bill automatically.
-            setData((prevData) =>
-              prevData.map((item) =>
-                item.key === record.key
-                  ? { ...item, billAutoTriggered: true }
-                  : item
-              )
-            );
-            generateBill(record);
-          }
-        } else {
-          // For pending or other non-paid statuses.
-          const daysLeft = moment(record.dueDate).diff(moment(), "days");
-          if (daysLeft <= AUTO_RENEW_THRESHOLD && !record.billGenerated) {
-            setData((prevData) =>
-              prevData.map((item) =>
-                item.key === record.key
-                  ? { ...item, billAutoTriggered: true }
-                  : item
-              )
-            );
-            generateBill(record);
-          }
-        }
-      });
-    };
-
-    // Run the auto-generation check every 15 seconds.
-    const intervalId = setInterval(autoGenerateBill, 15000);
-    return () => clearInterval(intervalId);
-  }, [data]);
-
-  // ------------------------------------------------------------------
   // Generate a new bill.
-  // ------------------------------------------------------------------
-  const generateBill = async (record) => {
-    let payload;
-    const lowerStatus = record.status.toLowerCase();
-    const termDays = parseInt(record.term, 10);
-
-    if (lowerStatus === "paid" || lowerStatus === "approved") {
-      const cycleStart = record.billDate
-        ? moment(record.billDate)
-        : moment(record.dueDate);
-      const nextDueDate = cycleStart.clone().add(termDays, "days");
-      const daysLeft = nextDueDate.diff(moment(), "days");
-
-      if (daysLeft <= AUTO_RENEW_THRESHOLD) {
-        const newDueDate = moment().add(termDays, "days").format("YYYY-MM-DD");
-        payload = {
-          tenant_id: record.key,
-          bill_date: moment().format("YYYY-MM-DD"),
-          due_date: newDueDate,
-          amount: record.rentAmount,
-        };
-      } else {
-        let penalty = 0;
-        if (daysLeft < 0 && Math.abs(daysLeft) > OVERDUE_THRESHOLD) {
-          penalty =
-            record.rentAmount *
-            (PENALTY_RATE * (Math.abs(daysLeft) - OVERDUE_THRESHOLD));
-        }
-        payload = {
-          tenant_id: record.key,
-          bill_date: moment().format("YYYY-MM-DD"),
-          due_date: record.dueDate,
-          amount: record.rentAmount,
-        };
-      }
-    } else {
-      const daysLeft = moment(record.dueDate).diff(moment(), "days");
-      let penalty = 0;
-      if (daysLeft < 0 && Math.abs(daysLeft) > OVERDUE_THRESHOLD) {
-        penalty =
-          record.rentAmount *
-          (PENALTY_RATE * (Math.abs(daysLeft) - OVERDUE_THRESHOLD));
-      }
-      payload = {
-        tenant_id: record.key,
-        bill_date: moment().format("YYYY-MM-DD"),
-        due_date: record.dueDate,
-        amount: record.rentAmount,
-      };
-    }
-
+  const generateBill = useCallback(async (record) => {
+    const payload = buildGenerateBillPayload(record);
     try {
       const response = await axios.post(`${API_BASE}/rent/generate`, payload);
       const returnedBillId = response.data.billId;
@@ -261,59 +203,55 @@ const Rent = () => {
                   payment_status.charAt(0).toUpperCase() +
                   payment_status.slice(1),
                 billId: returnedBillId,
-                dueDate:
-                  (lowerStatus === "paid" || lowerStatus === "approved") &&
-                  moment(
-                    record.billDate ? record.billDate : record.dueDate
-                  )
-                    .add(termDays, "days")
-                    .diff(moment(), "days") <= AUTO_RENEW_THRESHOLD
-                    ? payload.due_date
-                    : item.dueDate,
-                penalty:
-                  (lowerStatus === "paid" || lowerStatus === "approved") &&
-                  moment(
-                    record.billDate ? record.billDate : record.dueDate
-                  )
-                    .add(termDays, "days")
-                    .diff(moment(), "days") <= AUTO_RENEW_THRESHOLD
-                    ? 0
-                    : item.penalty,
-                totalDue:
-                  (lowerStatus === "paid" || lowerStatus === "approved") &&
-                  moment(
-                    record.billDate ? record.billDate : record.dueDate
-                  )
-                    .add(termDays, "days")
-                    .diff(moment(), "days") <= AUTO_RENEW_THRESHOLD
-                    ? record.rentAmount
-                    : item.totalDue,
+                dueDate: payload.due_date,
+                penalty: 0,
+                totalDue: record.rentAmount,
+                billDate: payload.bill_date,
               }
             : item
         )
       );
       message.success(
-        `Bill generated! Total Due: ${record.rentAmount.toFixed(2)} Birr`
+        `Bill generated! Total Due: ${formatCurrency(record.rentAmount)}`
       );
     } catch (error) {
       console.error("Error generating bill:", error);
       message.error("Failed to generate bill");
     }
-  };
+  }, []);
 
-  // ------------------------------------------------------------------
-  // Submit the payment proof (an image URL) for the generated bill.
-  // ------------------------------------------------------------------
+  // Auto-generate bills if the renewal conditions are met.
+  const autoGenerateBills = useCallback(() => {
+    data.forEach((record) => {
+      // If billGenerated is false and no auto generation has triggered.
+      if (!record.billGenerated && !record.billAutoTriggered) {
+        // Mark as triggered to prevent duplicate calls.
+        setData((prevData) =>
+          prevData.map((item) =>
+            item.key === record.key ? { ...item, billAutoTriggered: true } : item
+          )
+        );
+        generateBill(record);
+      }
+    });
+  }, [data, generateBill]);
+
+  useEffect(() => {
+    const intervalId = setInterval(autoGenerateBills, 15000);
+    return () => clearInterval(intervalId);
+  }, [autoGenerateBills]);
+
+  // Submit payment proof.
   const submitProof = async () => {
     if (!proofLink.trim()) {
       message.error("Please enter a valid image link.");
       return;
     }
+    if (!selectedRecord?.billId) {
+      message.error("Bill not generated. Generate the bill first.");
+      return;
+    }
     try {
-      if (!selectedRecord.billId) {
-        message.error("Bill not generated. Generate the bill first.");
-        return;
-      }
       await axios.patch(
         `${API_BASE}/rent/${selectedRecord.billId}/proof`,
         { proof_url: proofLink }
@@ -332,34 +270,29 @@ const Rent = () => {
     }
   };
 
-  // ------------------------------------------------------------------
-  // Approve payment for a given bill.
-  // ------------------------------------------------------------------
-  const handleApprove = useCallback(
-    async (record) => {
-      if (!record.billId) {
-        message.error("Bill not generated. Cannot approve payment.");
-        return;
-      }
-      try {
-        await axios.patch(`${API_BASE}/rent/${record.billId}/approve`);
-        setData((prevData) =>
-          prevData.map((item) =>
-            item.key === record.key ? { ...item, approved: true, status: "Paid" } : item
-          )
-        );
-        message.success("Payment approved!");
-      } catch (error) {
-        console.error("Error approving payment:", error);
-        message.error("Failed to approve payment");
-      }
-    },
-    [setData]
-  );
+  // Approve payment.
+  const handleApprove = useCallback(async (record) => {
+    if (!record.billId) {
+      message.error("Bill not generated. Cannot approve payment.");
+      return;
+    }
+    try {
+      await axios.patch(`${API_BASE}/rent/${record.billId}/approve`);
+      setData((prevData) =>
+        prevData.map((item) =>
+          item.key === record.key
+            ? { ...item, approved: true, status: "Paid" }
+            : item
+        )
+      );
+      message.success("Payment approved!");
+    } catch (error) {
+      console.error("Error approving payment:", error);
+      message.error("Failed to approve payment");
+    }
+  }, []);
 
-  // ------------------------------------------------------------------
   // Modal helper functions.
-  // ------------------------------------------------------------------
   const openProofModal = (record) => {
     setSelectedRecord(record);
     setProofModalVisible(true);
@@ -380,23 +313,20 @@ const Rent = () => {
     setDetailsModalVisible(true);
   };
 
-  // ------------------------------------------------------------------
-  // Helper to check if status is "paid" or "approved".
-  // ------------------------------------------------------------------
-  const isPaidOrApproved = (status) => {
-    const lowerStatus = status.toLowerCase();
-    return lowerStatus === "paid" || lowerStatus === "approved";
-  };
-
-  // ------------------------------------------------------------------
-  // Render cell for "Generate Bill" column.
-  // ------------------------------------------------------------------
+  // Render cell for the "Generate Bill" column.
   const renderGenerateBillCell = (record) => {
-    // Calculations will re-run each render due to the "tick" state.
     if (record.billAutoTriggered && !record.billGenerated) {
       return <Tag color="orange">Auto Generating...</Tag>;
     }
-
+    // If no current bill exists (i.e. ready for renewal)
+    if (!record.billGenerated) {
+      return record.daysLeft !== null && record.daysLeft > AUTO_RENEW_THRESHOLD ? (
+        <Tag color="blue">{record.daysLeft} days left</Tag>
+      ) : (
+        <Tag color="orange">Auto Generating...</Tag>
+      );
+    }
+    // If a bill exists and its status is paid/approved.
     if (isPaidOrApproved(record.status)) {
       const termDays = parseInt(record.term, 10);
       const cycleStart = record.billDate
@@ -412,20 +342,14 @@ const Rent = () => {
     } else {
       const daysLeft = moment(record.dueDate).diff(moment(), "days");
       return daysLeft <= AUTO_RENEW_THRESHOLD ? (
-        record.billGenerated ? (
-          <Tag color="green">Generated</Tag>
-        ) : (
-          <Tag color="orange">Auto Generating...</Tag>
-        )
+        <Tag color="orange">Auto Generating...</Tag>
       ) : (
         <Tag color="blue">{daysLeft} days left</Tag>
       );
     }
   };
 
-  // ------------------------------------------------------------------
-  // Table column definitions.
-  // ------------------------------------------------------------------
+  // Memoized table columns.
   const columns = useMemo(
     () => [
       { title: "Tenant Name", dataIndex: "name", key: "name" },
@@ -436,19 +360,19 @@ const Rent = () => {
         title: "Rent Amount",
         dataIndex: "rentAmount",
         key: "rentAmount",
-        render: (amount) => `${amount.toFixed(2)} Birr`,
+        render: (amount) => formatCurrency(amount),
       },
       {
         title: "Penalty",
         dataIndex: "penalty",
         key: "penalty",
-        render: (penalty) => `${penalty.toFixed(2)} Birr`,
+        render: (penalty) => formatCurrency(penalty),
       },
       {
         title: "Total Due",
         dataIndex: "totalDue",
         key: "totalDue",
-        render: (total) => `${total.toFixed(2)} Birr`,
+        render: (total) => formatCurrency(total),
       },
       {
         title: "Status",
@@ -456,11 +380,12 @@ const Rent = () => {
         key: "status",
         render: (status) => {
           const lowerStatus = status.toLowerCase();
-          const color = isPaidOrApproved(status)
-            ? "green"
-            : lowerStatus === "pending"
-            ? "blue"
-            : "red";
+          const color =
+            isPaidOrApproved(status)
+              ? "green"
+              : lowerStatus === "pending"
+              ? "blue"
+              : "red";
           return <Tag color={color}>{status.toUpperCase()}</Tag>;
         },
       },
@@ -528,9 +453,6 @@ const Rent = () => {
     [data, handleApprove]
   );
 
-  // ------------------------------------------------------------------
-  // Component render.
-  // ------------------------------------------------------------------
   return (
     <div style={{ padding: "20px" }}>
       <Table
@@ -596,7 +518,7 @@ const Rent = () => {
         </Form>
       </Modal>
 
-      {/* Modal for RentInfo Details */}
+      {/* Modal for Rent Payment Details */}
       <Modal
         visible={detailsModalVisible}
         footer={null}
